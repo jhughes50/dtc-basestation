@@ -1,0 +1,12 @@
+<launch>
+    <arg name="ground_robot" default="phobos"/>
+    <arg name="aerial_robot" default="dione"/>
+
+    <node name="vlm_node" pkg="dtc_inference" type="vlm_node.py" output="screen"/>
+    <node name="basestation_receiver_node" pkg="dtc_inference" type="receiver_node.py" output="screen">
+	<param name="ground_robot" value="$(arg ground_robot)"/>
+	<param name="aerial_robot" value="$(arg aerial_robot)"/>
+    </node>
+    <node name="scorecard_sender_node" pkg="dtc_inference" type="scorecard_sender_node.py" output="screen"/>
+    
+</launch>
