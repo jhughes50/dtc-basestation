@@ -36,6 +36,8 @@ LABEL_CLASSES = [
     "trauma_upper_ext",
     "alertness_ocular",
     "severe_hemorrhage",
+    "alertness_motion",
+    "alertness_verbal",
 ]
 
 class WSReceiverNode:

@@ -58,6 +58,8 @@ LABEL_CLASSES = [
     "trauma_upper_ext",
     "alertness_ocular",
     "severe_hemorrhage",
+    "alertness_motor",
+    "alertness_verbal",
 ]
 
 LABEL_MEANINGS_INT_TO_STR = {
@@ -88,6 +90,18 @@ LABEL_MEANINGS_INT_TO_STR = {
         0: "absence",
         1: "presence",
     },
+    "alertness_motor": {
+        0: "normal",
+        1: "abnormal",
+        2: "absence",
+        3: "untestable",
+    },
+    "alertness_verbal": {
+        0: "normal",
+        1: "abnormal",
+        2: "absence",
+        3: "untestable",
+    }
 }
 
 LABEL_MEANINGS_STR_TO_INT = {
@@ -117,6 +131,18 @@ LABEL_MEANINGS_STR_TO_INT = {
     "severe_hemorrhage": {
         "absence": 0,
         "presence": 1,
+    },
+    "alertness_motor": {
+        "normal": 0,
+        "abnormal": 1,
+        "absence": 2,
+        "untestable": 3,
+    },
+    "alertness_verbal": {
+        "normal": 0,
+        "abnormal": 1,
+        "absence": 2,
+        "untestable": 3,
     },
 }
 
@@ -774,10 +800,110 @@ class VLMNode:
         return predictions, all_prompts
 
     def _predict_motion_from_video(self, images):
-        return 0
-    
+        failed_to_parse = True
+
+        while failed_to_parse:
+            conv_mode = self._get_conv_mode(self.model_name)
+            conv = conv_templates[conv_mode].copy()
+
+            QUESTION_STRING = f"{DEFAULT_IMAGE_TOKEN} , {DEFAULT_IMAGE_TOKEN} , {DEFAULT_IMAGE_TOKEN} " + \
+                "You are given a set of 3 images. All images contain a person. " + \
+                "Did the person move between the images? Respond with a dictionary with the key 'alertness_motor' " + \
+                "and the value 'normal' for no movement, 'abnormal' for movement, 'absence' for no person, or " + \
+                "'untestable' if the movement is untestable."
+            
+            conv.append_message(conv.roles[0], QUESTION_STRING)
+            conv.append_message(conv.roles[1], None)
+
+            prompt = conv.get_prompt()
+            tokenized_prompt = (
+                tokenizer_image_token(
+                    prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
+                )
+                .unsqueeze(0)
+                .to(self.device)
+            )
+
+            # get the response from the model
+            streamer = TextStreamer(
+                self.tokenizer, skip_prompt=False, skip_special_tokens=True
+            )
+            image_sizes = [img.size for img in images]
+            with torch.inference_mode():
+                tokenized_response = self.model.generate(
+                    tokenized_prompt,
+                    images=images,
+                    image_sizes=image_sizes,
+                    do_sample=True if self.temperature > 0 else False,
+                    temperature=self.temperature,
+                    max_new_tokens=self.max_new_tokens,
+                    streamer=streamer,
+                    use_cache=False,
+                    # stopping_criteria=[stopping_criteria],
+                )
+            string_response = self.tokenizer.decode(tokenized_response[0]).strip()
+            conv.messages[-1][-1] = string_response
+
+            for i in range(self.num_tries):
+                final_response = parse_dict_response(string_response, "alertness_verbal")
+                if isinstance(final_response, dict):
+                    rospy.loginfo(f"Successfully parsed the response after {i} tries.")
+                    failed_to_parse = False
+                    break
+
+        return final_response
+
+
     def _predict_if_whisper_is_text(self, whisper):
-        return 0
+        failed_to_parse = True
+
+        while failed_to_parse:
+            conv_mode = self._get_conv_mode(self.model_name)
+            conv = conv_templates[conv_mode].copy()
+
+            QUESTION_STRING = "This is a prompt from a person. Is this person's " + \
+                "speech understandable? Respond with a dictonary with the key 'alertness_verbal' " + \
+                "and the value 'normal' for understandable speech, 'abnormal' for unclear speech, " + \
+                "'absence' for no speech, or 'untestable' if the speech is untestable. Here is the sentence: "
+            conv.append_message(conv.roles[0], QUESTION_STRING + "'" + whisper + "'")
+            conv.append_message(conv.roles[1], None)
+
+            prompt = conv.get_prompt()
+            tokenized_prompt = (
+                tokenizer_image_token(
+                    prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
+                )
+                .unsqueeze(0)
+                .to(self.device)
+            )
+
+            # get the response from the model
+            streamer = TextStreamer(
+                self.tokenizer, skip_prompt=False, skip_special_tokens=True
+            )
+            with torch.inference_mode():
+                tokenized_response = self.model.generate(
+                    tokenized_prompt,
+                    images=None,
+                    image_sizes=None,
+                    do_sample=True if self.temperature > 0 else False,
+                    temperature=self.temperature,
+                    max_new_tokens=self.max_new_tokens,
+                    streamer=streamer,
+                    use_cache=False,
+                    # stopping_criteria=[stopping_criteria],
+                )
+            string_response = self.tokenizer.decode(tokenized_response[0]).strip()
+            conv.messages[-1][-1] = string_response
+
+            for i in range(self.num_tries):
+                final_response = parse_dict_response(string_response, "alertness_verbal")
+                if isinstance(final_response, dict):
+                    rospy.loginfo(f"Successfully parsed the response after {i} tries.")
+                    failed_to_parse = False
+                    break
+
+        return final_response
     
     def vlm_callback(self, msg):
         """Callback that is triggrered when ground robot sends a GroundDetection.
@@ -898,8 +1024,8 @@ class VLMNode:
             if len(whispers_to_check) > 0:
                 for whisper_id, whisper in whispers_to_check.items():
                     # run the text checker
-                    text_label = self._predict_if_whisper_is_text(whisper)
-                    text_list.append(int(text_label))
+                    response_dict = self._predict_if_whisper_is_text(whisper)
+                    text_list.append(int(response_dict["alertness_verbal"]))
                     rospy.loginfo(f"Predicted that whisper string for casualty_id {casualty_id} and whisper_id {whisper_id} is {text_label}.")
             else:
                 rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
