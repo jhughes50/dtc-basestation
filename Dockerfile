@@ -124,6 +124,8 @@ COPY ./install/download.py download.py
 #RUN python3 download.py
 RUN pip3 install peft zmq
 
+RUN sudo apt install vim -y
+
 RUN sudo chown $USER:$USER ~/.bashrc \
  && /bin/sh -c 'echo sudo chown -R $USER:$USER /home/dtc/.cache/huggingface/ >> ~/.bashrc' \
  && /bin/sh -c 'echo ". /opt/ros/noetic/setup.bash" >> ~/.bashrc' \

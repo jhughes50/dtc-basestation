@@ -26,6 +26,7 @@ class Orchestrator:
         self.casualty_id_ = None
         self.current_gps_ = NavSatFix()
         self.current_image_ = CompressedImage()
+        self.ground_msg_ = GroundImage()
 
         self.img_stop_ = True
         self.img_count_ = 0
@@ -91,6 +92,7 @@ class Orchestrator:
             elif len(msg.detections) == 1:
                 self.casualty_id_ = msg.detections[0].id[0]
             else:
+             
                 for i, d in enumerate(msg.detections):
                     tag_cam_pose = d.pose.pose.pose
                     tag_id = d.id[0]
@@ -125,14 +127,14 @@ class Orchestrator:
 
     def mttsReadingCallback(self, msg : Float32) -> None:
         if self.trigger_ != 0:
-            print(termcolor.colored("[GROUND-ORCHESATRATION] Received MTTS reading","green"))
+            print(termcolor.colored("[GROUND-ORCHESATRATION] Received MTTS reading","green"), msg.data)
             self.config_["jackal-mtts"].received = True
             self.config_["jackal-mtts"].reading = msg.data
 
     def vhrReadingCallback(self, msg : Float32) -> None:
         if self.trigger_ != 0:
             print(termcolor.colored("[GROUND-DETECTION] Received VHR reading","green"))
-            self.config_["jackal-pyvhr"].recieved = True
+            self.config_["jackal-pyvhr"].received = True
             self.config_["jackal-pyvhr"].reading = msg.data
 
     def imageCallback(self, msg: CompressedImage) -> None:
@@ -141,15 +143,18 @@ class Orchestrator:
             self.img_count_ += 1
             if (self.img_count_ % 100 == 0) and self.send_3_ < 3:
                 self.send_3_ += 1
-                print("[GROUND-ORCHESTRATOR] Sending Image")
-                pmsg = GroundImage()
-                pmsg.image = msg
-                pmsg.header = msg.header
-                pmsg.casualty_id.data = self.casualty_id_
-                pmsg.gps = self.current_gps_
-        
-                self.img_pub_.publish(pmsg) 
-                print("[GROUND-ORCHESTRATOR] Image Sent")
+                if self.send_3_ == 1:
+                    self.ground_msg_.image1 = msg
+                    self.ground_msg_.casualty_id.data = self.casualty_id_
+                elif self.send_3_ == 2:
+                    self.ground_msg_.image2 = msg
+                elif self.send_3_ == 3:
+                    self.ground_msg_.image3 = msg
+                    self.ground_msg_.header.frame_id = "phobos"
+                    self.ground_msg_.gps = self.current_gps_
+                    print("[GROUND-ORCHESTRATOR] Sending Image")
+                    self.img_pub_.publish(self.ground_msg_) 
+                    print("[GROUND-ORCHESTRATOR] Image Sent")
 
     def gpsCallback(self, msg : NavSatFix) -> None:
         self.current_gps_ = msg
@@ -161,6 +166,7 @@ class Orchestrator:
             self.casualty_id_ = None
         else:
             self.send_3_ = 0
+            self.ground_msg_ = GroundImage()
 
     def overrideCallback(self, msg : Bool) -> None:
         if msg.data:
@@ -172,23 +178,22 @@ class Orchestrator:
         msg.header = self.current_image_.header
         msg.header.frame_id = self.name_
         msg.gps = self.current_gps_
-        msg.image = self.current_image_
-        msg.casualty_id = self.casualty_id_
+        msg.casualty_id.data = self.casualty_id_
 
         if self.config_["jackal-whisper"].run:
-            msg.whisper = self.config_["jackal-whisper"].reading
+            msg.whisper.data = self.config_["jackal-whisper"].reading
             self.config_["jackal-whisper"].received = False 
         if self.config_["jackal-acconeer"].run:
-            msg.acconeer_respiration_rate = self.config_["jackal-acconeer"].reading
+            msg.acconeer_respiration_rate.data = self.config_["jackal-acconeer"].reading
             self.config_["jackal-acconeer"].received=False
         if self.config_["jackal-ebreather"].run:
-            msg.event_respiration_rate = self.config_["jackal-ebreather"].reading
+            msg.event_respiration_rate.data = self.config_["jackal-ebreather"].reading
             self.config_["jackal-ebreather"].received = False
         if self.config_["jackal-mtts"].run:
-            msg.neural_heart_rate = self.config_["jackal-mtts"].reading
+            msg.neural_heart_rate.data = self.config_["jackal-mtts"].reading
             self.config_["jackal-mtts"].received = False
         if self.config_["jackal-pyvhr"].run:
-            msg.cv_heart_rate = self.config_["jackal-pyvhr"].reading
+            msg.cv_heart_rate.data = self.config_["jackal-pyvhr"].reading
             self.config_["jackal-pyvhr"].received = False
 
         self.detection_pub_.publish(msg)

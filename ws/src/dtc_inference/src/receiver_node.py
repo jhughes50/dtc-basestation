@@ -123,10 +123,10 @@ class WSReceiverNode:
         rospy.loginfo(f"Created publishers for signals and images.")
 
         # publish the run directory
-        rospy.sleep(rospy.Duration(1))
         path_publisher = rospy.Publisher(
-            "/run_directory", String, queue_size=2
+            "/run_dir", String, queue_size=2
         )
+        rospy.sleep(rospy.Duration(3))
         msg = String()
         msg.data = self.run_dir
         path_publisher.publish(msg)

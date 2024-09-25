@@ -15,6 +15,7 @@ import glob
 
 import rospy
 from dtc_inference.msg import ReceivedImageData, ImageAnalysisResult
+from std_msgs.msg import String 
 from cv_bridge import CvBridge
 
 from transformers import TextStreamer
@@ -328,16 +329,10 @@ class VLMNode:
         self.device = rospy.get_param("device", "gpu")
         rospy.loginfo(f"Set up device {self.device}.")
 
-        self.run_dir_sub = rospy.Subscriber(
-            "/run_dir", String, self.run_dir_callback
-        )
-        self.run_dir = None
-        while self.run_dir is None:
-            rospy.loginfo("Waiting for run directory.")
-            time.sleep(0.05)
+        self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
 
         # create a file to store the ids with seen drone images
-        self.seen_drone_images_path = rospy.get_param(
+        self.seen_drone_images_path = rospy.get_param("seen_drone_images",
             os.path.join(self.run_dir, "seen_drone_images.csv")
         )
         _df = pd.DataFrame(columns=["casualty_id"])
@@ -345,7 +340,7 @@ class VLMNode:
         rospy.loginfo(f"Created seen drone images file at {self.seen_drone_images_path}.")
 
         # create a file to store the seen whisper texts
-        self.seen_whisper_texts_path = rospy.get_param(
+        self.seen_whisper_texts_path = rospy.get_param("seen_whisper_texts",
             os.path.join(self.run_dir, "seen_whisper_texts.csv")
         )
         _df = pd.DataFrame(columns=["casualty_id", "whisper_id"])
@@ -365,8 +360,8 @@ class VLMNode:
         self.model_name = get_model_name_from_path(self.model_path)
         rospy.loginfo(f"Loading model {self.model_name} from {self.model_path}.")
         self.tokenizer, self.model, self.image_processor, _ = load_pretrained_model(
-            self.model_base,
-            None, #TODO: fix this to use the lora models properly
+            self.model_path,
+            self.model_base, #TODO: fix this to use the lora models properly
             self.model_name,
             load_8bit=False,
             load_4bit=False,
@@ -423,7 +418,7 @@ class VLMNode:
             )
         )
 
-        self.use_context = rospy.get_param("use_context", True)
+        self.use_context = rospy.get_param("use_context", False)
         # load context images
         if self.use_context:
             context_img_path = rospy.get_param(
@@ -833,8 +828,7 @@ class VLMNode:
         drone_vlm_pred, drone_vlm_prompts = None, None
         if casualty_id in df["casualty_id"].values:
             rospy.loginfo(
-                f"Already seen drone image for casualty_id {casualty_id}. Skipping
-                drone image."
+                f"Already seen drone image for casualty_id {casualty_id}. Skipping drone image."
             )
             drone_img_list = None
         else:
@@ -854,8 +848,7 @@ class VLMNode:
             
             else:
                 rospy.loginfo(
-                    f"Did not find drone image for casualty_id {casualty_id}. Skipping
-                    drone image."
+                    f"Did not find drone image for casualty_id {casualty_id}. Skipping drone image."
                 )
 
         if drone_vlm_pred is not None:
