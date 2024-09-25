@@ -760,7 +760,7 @@ class VLMNode:
             images = images + context_images
             images = [img.resize((256, 256)) for img in images]  # TODO: remove this once we have model cropping.
 
-        init_prompt += f"{DEFAULT_IMAGE_TOKEN} Describe this image. Be brief."
+        init_prompt += f"{DEFAULT_IMAGE_TOKEN} Describe this image. Be very brief. Do not be wordy."
 
         predictions = {}
         image_sizes = [img.size for img in images]
@@ -1031,9 +1031,13 @@ class VLMNode:
             if len(whispers_to_check) > 0:
                 for whisper_id, whisper in whispers_to_check.items():
                     # run the text checker
-                    response_dict = self._predict_if_whisper_is_text(whisper)
-                    text_list.append(int(response_dict["alertness_verbal"]))
-                    rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
+                    if whisper == " ":
+                        text_list.append(2)
+                        rospy.loginfo("No speech detected, defaulting to 2.")
+                    else:
+                        response_dict = self._predict_if_whisper_is_text(whisper)
+                        text_list.append(int(response_dict["alertness_verbal"]))
+                        rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
             else:
                 rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
 
