@@ -12,6 +12,7 @@ import getpass
 
 import rospy
 from dtc_inference.msg import ReceivedSignal, ReceivedImageData
+from std_msgs.msg import String
 from gone.msg import GroundDetection, GroundImage
 from tdd2.msg import TDDetection
 from cv_bridge import CvBridge
@@ -121,6 +122,15 @@ class WSReceiverNode:
         )
         rospy.loginfo(f"Created publishers for signals and images.")
 
+        # publish the run directory
+        rospy.sleep(rospy.Duration(1))
+        path_publisher = rospy.Publisher(
+            "/run_directory", String, queue_size=2
+        )
+        msg = String()
+        msg.data = self.run_dir
+        path_publisher.publish(msg)
+        rospy.loginfo(f"Published run directory at {self.run_dir}.")
 
     def drone_callback(self, msg):
         """Callback that is triggrered when drone sends a TDDetection.
@@ -144,7 +154,7 @@ class WSReceiverNode:
         drone_img = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
 
         img_path = os.path.join(
-            self.run_dir, casualty_id, f"drone_img_.png"
+            self.run_dir, casualty_id, f"drone_img.png"
         )
         cv2.imwrite(img_path, drone_img)
 
@@ -190,7 +200,7 @@ class WSReceiverNode:
         rospy.loginfo(f"Received {num_images_for_id} images for casualty ID {casualty_id}.")
 
         if num_images_for_id > 6:
-            rospy.loginfo("Received more than 6 images for same casualty ID.")
+            rospy.loginfo("Received more than 6 images for same casualty ID. Skipping.")
             return False
         
         img_paths = [os.path.join(

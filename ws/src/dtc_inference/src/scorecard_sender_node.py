@@ -621,6 +621,10 @@ class ScorecardSenderNode:
                 return 0 if 0 in x else (1 if 1 in x else 2)
             if label_class == "severe_hemorrhage":
                 return 1 if 1 in x else 0
+            if label_class == "alertness_verbal":
+                return 0 if 0 in x else (1 if 1 in x else 2 if 2 in x else 3)
+            if label_class == "alertness_motor":
+                return 0 if 0 in x else (1 if 1 in x else 2 if 2 in x else 3)
             
             return 0
         
@@ -651,6 +655,8 @@ class ScorecardSenderNode:
             trauma_upper_ext_list = []
             alertness_ocular_list = []
             severe_hemorrhage_list = []
+            alertness_motor_list = []
+            alertness_verbal_list = []
 
             for msg in self.message_dict[casualty_id]:
                 trauma_head_list += msg.trauma_head
@@ -659,6 +665,8 @@ class ScorecardSenderNode:
                 trauma_upper_ext_list += msg.trauma_upper_ext
                 alertness_ocular_list += msg.alertness_ocular
                 severe_hemorrhage_list += msg.severe_hemorrhage
+                alertness_motor_list += msg.alertness_motor
+                alertness_verbal_list += msg.alertness_verbal
 
             # aggregate results
             agg_res = self._aggregate_results(
@@ -669,6 +677,8 @@ class ScorecardSenderNode:
                     "trauma_upper_ext": trauma_upper_ext_list,
                     "alertness_ocular": alertness_ocular_list,
                     "severe_hemorrhage": severe_hemorrhage_list,
+                    "alertness_motor": alertness_motor_list,
+                    "alertness_verbal": alertness_verbal_list,
                 }
             )
             

@@ -11,6 +11,7 @@ import json
 import time
 import portalocker
 import getpass
+import glob
 
 import rospy
 from dtc_inference.msg import ReceivedImageData, ImageAnalysisResult
@@ -326,6 +327,29 @@ class VLMNode:
         )
         self.device = rospy.get_param("device", "gpu")
         rospy.loginfo(f"Set up device {self.device}.")
+
+        self.run_dir_sub = rospy.Subscriber(
+            "/run_dir", String, self.run_dir_callback
+        )
+        self.run_dir = None
+        while self.run_dir is None:
+            rospy.loginfo("Waiting for run directory.")
+            time.sleep(0.05)
+
+        # create a file to store the ids with seen drone images
+        self.seen_drone_images_path = rospy.get_param(
+            os.path.join(self.run_dir, "seen_drone_images.csv")
+        )
+        _df = pd.DataFrame(columns=["casualty_id"])
+        _df.to_csv(self.seen_drone_images_path, index=False)
+        rospy.loginfo(f"Created seen drone images file at {self.seen_drone_images_path}.")
+
+        # create a file to store the seen whisper texts
+        self.seen_whisper_texts_path = rospy.get_param(
+            os.path.join(self.run_dir, "seen_whisper_texts.csv")
+        )
+        _df = pd.DataFrame(columns=["casualty_id", "whisper_id"])
+        _df.to_csv(self.seen_whisper_texts_path, index=False)
 
         # create subscriber to drone and ground
         self.image_sub = rospy.Subscriber(
@@ -754,7 +778,12 @@ class VLMNode:
 
         return predictions, all_prompts
 
-
+    def _predict_motion_from_video(self, images):
+        return 0
+    
+    def _predict_if_whisper_is_text(self, whisper):
+        return 0
+    
     def vlm_callback(self, msg):
         """Callback that is triggrered when ground robot sends a GroundDetection.
 
@@ -770,38 +799,12 @@ class VLMNode:
         num_images = len(image_path_list)
         rospy.loginfo(f"Received {num_images} image paths in VLM, starting prediction.")
 
-        ground_img_list = None
-        video_img_list = None
-        drone_img_list = None
-        if len(image_path_list) == 1:
-            rospy.loginfo("Received first image, triggering VLM.")
-            ground_img_list = [Image.open(image_path_list[0])]
-        if len(image_path_list) == 6:
-            rospy.loginfo("Received all ground images, triggering VLM.")
-            ground_img_list = [Image.open(image_path_list[3])]
-            video_img_list = [Image.open(image_path_list[i]) for i in range(3, 6)]
-        if len(image_path_list) == 7:
-            rospy.loginfo("Received all images including drone for casualty ID, triggering VLM.")
-            ground_counter = 0
-            for path in image_path_list:                  
-                if "drone" in path:
-                    drone_path = path
-                else:
-                    ground_counter += 1
-
-                if ground_counter == 3:
-                    ground_path = path
-
-            ground_img_list = [Image.open(ground_path)]
-            drone_img_list = [Image.open(drone_path)]
-
+        ### START WITH GROUND
+        # Run the VLM for the ground image
+        ground_img_list = [Image.open(image_path_list[0])]
+        rospy.loginfo("Received images, triggering VLM.")
         ground_vlm_pred, ground_vlm_prompts = self._predict_all_labels_from_vlm(ground_img_list)
         rospy.loginfo(f"Successfully predicted ground labels.")
-        # save the ground prompts into the directory that contains the image
-        for i, prompt in enumerate(ground_vlm_prompts):
-            with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}.txt"), "w") as f:
-                f.write(prompt)
-        rospy.loginfo(f"Successfully saved ground prompts.")
 
         trauma_head_list = [int(ground_vlm_pred["trauma_head"])]
         trauma_torso_list = [int(ground_vlm_pred["trauma_torso"])]
@@ -811,26 +814,102 @@ class VLMNode:
         sev_hem_list = [int(ground_vlm_pred["severe_hemorrhage"])]
         rospy.loginfo(f"Successfully parsed ground labels.")
 
-        if video_img_list is not None:
-            motion_list = [1]
-        else:
-            motion_list = [0]
+        # save the ground prompts into the directory that contains the image
+        for i, prompt in enumerate(ground_vlm_prompts):
+            with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}.txt"), "w") as f:
+                f.write(prompt)
+        rospy.loginfo(f"Successfully saved ground prompts.")
 
-        if drone_img_list is not None:
-            air_vlm_pred, air_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
-            trauma_head_list.append(int(air_vlm_pred["trauma_head"]))
-            trauma_torso_list.append(int(air_vlm_pred["trauma_torso"]))
-            trauma_lower_ext_list.append(int(air_vlm_pred["trauma_lower_ext"]))
-            trauma_upper_ext_list.append(int(air_vlm_pred["trauma_upper_ext"]))
-            alert_oc_list.append(int(air_vlm_pred["alertness_ocular"]))
-            sev_hem_list.append(int(air_vlm_pred["severe_hemorrhage"]))
+        ### VIDEO PREDICTION WITH GROUND
+        video_img_list = [Image.open(image_path_list[i]) for i in range(len(image_path_list))]
+        motion_label = self._predict_motion_from_video(video_img_list)
+        motion_list = [int(motion_label)]
+
+        ### CONTINUE TO DRONE
+        # check if we have already seen the drone image for this casualty_id
+        with portalocker.Lock(self.seen_drone_images_path, "r") as f:
+            df = pd.read_csv(f)
+
+        drone_vlm_pred, drone_vlm_prompts = None, None
+        if casualty_id in df["casualty_id"].values:
+            rospy.loginfo(
+                f"Already seen drone image for casualty_id {casualty_id}. Skipping
+                drone image."
+            )
+            drone_img_list = None
+        else:
+            # Try to find the drone image
+            all_images_paths = glob.glob(os.path.join(os.path.dirname(image_path_list[0]), "drone_img.png"))
+            if len(all_images_paths) == 1:
+                drone_img_list = [Image.open(all_images_paths[0])]
+                rospy.loginfo(f"Found drone image for casualty_id {casualty_id}.")
+                
+                # add to the seen drone images
+                with portalocker.Lock(self.seen_drone_images_path, "a") as f:
+                    df = pd.DataFrame._append({"casualty_id": [casualty_id]})
+                    df.to_csv(f, header=False, index=False)
+
+                drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
+                rospy.loginfo(f"Successfully predicted drone labels.")
+            
+            else:
+                rospy.loginfo(
+                    f"Did not find drone image for casualty_id {casualty_id}. Skipping
+                    drone image."
+                )
+
+        if drone_vlm_pred is not None:
+            trauma_head_list.append(int(drone_vlm_pred["trauma_head"]))
+            trauma_torso_list.append(int(drone_vlm_pred["trauma_torso"]))
+            trauma_lower_ext_list.append(int(drone_vlm_pred["trauma_lower_ext"]))
+            trauma_upper_ext_list.append(int(drone_vlm_pred["trauma_upper_ext"]))
+            alert_oc_list.append(int(drone_vlm_pred["alertness_ocular"]))
+            sev_hem_list.append(int(drone_vlm_pred["severe_hemorrhage"]))
             rospy.loginfo(f"Successfully parsed air labels.")
 
             # save the air prompts into the directory that contains the drone_image
-            for i, prompt in enumerate(air_vlm_prompts):
-                with open(os.path.join(os.path.dirname(drone_img_list[-1]), f"prompt_{i}.txt"), "w") as f:
+            for i, prompt in enumerate(drone_vlm_prompts):
+                with open(os.path.join(os.path.dirname(drone_img_list[-1]), f"drone_prompt_{i}.txt"), "w") as f:
                     f.write(prompt)
             rospy.loginfo(f"Successfully saved air prompts.")
+
+
+        ### CONTINUE TO WHISPER
+        # load the seens whisper ids:
+        with portalocker.Lock(self.seen_whisper_texts_path, "r") as f:
+            df = pd.read_csv(f)
+        missing_whisper_ids = [idx for idx in range(1, 3) if idx not in df[df["casualty_id"] == casualty_id]["whisper_id"].values]
+        rospy.loginfo(f"Missing whisper ids for casualty_id {casualty_id}: {missing_whisper_ids}")
+
+        text_list = []
+        if len(missing_whisper_ids) > 0:
+            rospy.loginfo(f"Starting to check whisper strings for casualty_id {casualty_id}.")
+            # Check if there is a whisper string available
+            whispers_to_check = {}
+            for idx in missing_whisper_ids:
+                whisper_path = os.path.join(os.path.dirname(image_path_list[0]), f"whisper_{idx}.txt")
+                if os.path.exists(whisper_path):
+                    with portalocker(whisper_path, "r") as f:
+                        with open(whisper_path, "r") as f:
+                            whisper = f.read()
+                    rospy.loginfo(f"Found whisper string for casualty_id {casualty_id} and whisper_id {idx}.")
+                    whispers_to_check[idx] = whisper
+
+                    # add to the seen whisper texts
+                    with portalocker.Lock(self.seen_whisper_texts_path, "a") as f:
+                        df = pd.DataFrame({"casualty_id": [casualty_id], "whisper_id": [idx]})
+                        df.to_csv(f, header=False, index=False)
+                else:
+                    rospy.loginfo(f"Did not find whisper string for casualty_id {casualty_id} and whisper_id {idx}. Skipping whisper string.")
+
+            if len(whispers_to_check) > 0:
+                for whisper_id, whisper in whispers_to_check.items():
+                    # run the text checker
+                    text_label = self._predict_if_whisper_is_text(whisper)
+                    text_list.append(int(text_label))
+                    rospy.loginfo(f"Predicted that whisper string for casualty_id {casualty_id} and whisper_id {whisper_id} is {text_label}.")
+            else:
+                rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
 
         # publish the results
         msg = ImageAnalysisResult()
@@ -841,7 +920,8 @@ class VLMNode:
         msg.trauma_upper_ext = trauma_upper_ext_list
         msg.alertness_ocular = alert_oc_list
         msg.severe_hemorrhage = sev_hem_list
-        msg.motion = motion_list
+        msg.alertness_motor = motion_list
+        msg.alertness_verbal = text_list
 
         self.image_analysis_publisher.publish(msg)
 

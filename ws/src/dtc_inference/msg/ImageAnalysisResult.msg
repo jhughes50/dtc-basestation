@@ -6,3 +6,4 @@ int8[] trauma_upper_ext
 int8[] alertness_ocular
 int8[] severe_hemorrhage
 int8[] motion
+int8[] whisper_text
