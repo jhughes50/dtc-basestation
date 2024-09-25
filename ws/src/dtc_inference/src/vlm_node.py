@@ -882,7 +882,7 @@ class VLMNode:
             for idx in missing_whisper_ids:
                 whisper_path = os.path.join(os.path.dirname(image_path_list[0]), f"whisper_{idx}.txt")
                 if os.path.exists(whisper_path):
-                    with portalocker(whisper_path, "r") as f:
+                    with portalocker.Lock(whisper_path, "r") as f:
                         with open(whisper_path, "r") as f:
                             whisper = f.read()
                     rospy.loginfo(f"Found whisper string for casualty_id {casualty_id} and whisper_id {idx}.")
