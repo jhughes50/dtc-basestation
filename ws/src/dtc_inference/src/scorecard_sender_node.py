@@ -451,8 +451,8 @@ LABEL_MEANINGS_INT_TO_STR = {
         1: "abnormal",
         2: "absence",
         3: "untestable",
-    }
-        "alertness_verbal": {
+    },
+    "alertness_verbal": {
         0: "normal",
         1: "abnormal",
         2: "absence",
