@@ -851,7 +851,7 @@ class VLMNode:
             conv.messages[-1][-1] = string_response
 
             for i in range(self.num_tries):
-                final_response = parse_dict_response(string_response, "alertness_verbal")
+                final_response = parse_dict_response(string_response, "alertness_motor")
                 if isinstance(final_response, dict):
                     rospy.loginfo(f"Successfully parsed the response after {i} tries.")
                     failed_to_parse = False
@@ -867,10 +867,9 @@ class VLMNode:
             conv_mode = self._get_conv_mode(self.model_name)
             conv = conv_templates[conv_mode].copy()
 
-            QUESTION_STRING = "This is a prompt from a person. Is this person's " + \
-                "speech understandable? Respond with a dictonary with the key 'alertness_verbal' " + \
-                "and the value 'normal' for understandable speech, 'abnormal' for unclear speech, " + \
-                "'absence' for no speech, or 'untestable' if the speech is untestable. Here is the sentence: "
+            QUESTION_STRING = f"Is this a sentence: '{whisper}'. Respond with a dictonary with the key 'alertness_verbal' " + \
+                "and the value 'normal' for yes, 'abnormal' for unclear speech, " + \
+                "'absence' for no speech. Here is the sentence: "
             conv.append_message(conv.roles[0], QUESTION_STRING + "'" + whisper + "'")
             conv.append_message(conv.roles[1], None)
 
@@ -949,8 +948,8 @@ class VLMNode:
 
         ### VIDEO PREDICTION WITH GROUND
         video_img_list = [Image.open(image_path_list[i]) for i in range(len(image_path_list))]
-        motion_label = self._predict_motion_from_video(video_img_list)
-        motion_list = [int(motion_label)]
+        motion_response_dict = self._predict_motion_from_video(video_img_list)
+        motion_list = [int(motion_response_dict["alertness_motor"])]
 
         ### CONTINUE TO DRONE
         # check if we have already seen the drone image for this casualty_id
@@ -1003,7 +1002,7 @@ class VLMNode:
         # load the seens whisper ids:
         with portalocker.Lock(self.seen_whisper_texts_path, "r") as f:
             df = pd.read_csv(f)
-        missing_whisper_ids = [idx for idx in range(1, 3) if idx not in df[df["casualty_id"] == casualty_id]["whisper_id"].values]
+        missing_whisper_ids = [idx for idx in range(2) if idx not in df[df["casualty_id"] == casualty_id]["whisper_id"].values]
         rospy.loginfo(f"Missing whisper ids for casualty_id {casualty_id}: {missing_whisper_ids}")
 
         text_list = []
@@ -1013,7 +1012,9 @@ class VLMNode:
             whispers_to_check = {}
             for idx in missing_whisper_ids:
                 whisper_path = os.path.join(os.path.dirname(image_path_list[0]), f"whisper_{idx}.txt")
+                rospy.loginfo(f"Looking for path {whisper_path}")
                 if os.path.exists(whisper_path):
+                    rospy.loginfo(f"Found path {whisper_path}")
                     with portalocker.Lock(whisper_path, "r") as f:
                         with open(whisper_path, "r") as f:
                             whisper = f.read()
@@ -1032,7 +1033,7 @@ class VLMNode:
                     # run the text checker
                     response_dict = self._predict_if_whisper_is_text(whisper)
                     text_list.append(int(response_dict["alertness_verbal"]))
-                    rospy.loginfo(f"Predicted that whisper string for casualty_id {casualty_id} and whisper_id {whisper_id} is {text_label}.")
+                    rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
             else:
                 rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
 
