@@ -88,7 +88,15 @@ class WSReceiverNode:
         _df.to_csv(self.database_path, index=False)
         rospy.loginfo(f"Created file at {self.database_path}.")
 
-        self.image_dict = {} # TODO: turn into df
+        self.image_data_path = rospy.get_param(
+            "image_data_path", os.path.join(self.run_dir, "image_data.csv")
+        )
+        _df = pd.DataFrame(
+            columns=["casualty_id", "img_path"]
+        )
+        _df.to_csv(self.image_data_path, index=False)
+        rospy.loginfo(f"Created file at {self.image_data_path}.")
+
         
         robot_name = rospy.get_param("~ground_robot")
         drone_name = rospy.get_param("~aerial_robot")
@@ -160,52 +168,51 @@ class WSReceiverNode:
         robot_name = msg.header.frame_id
         casualty_id = msg.casualty_id.data
 
-        np_arr_image = np.frombuffer(msg.image.data, np.uint8)
-        ground_img = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
-        rospy.loginfo("Successfully decoded img.")
+        # TODO: adjust this with jason
+        np_arr_image = np.frombuffer(msg.image1.data, np.uint8)
+        ground_img_1 = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
+        rospy.loginfo("Successfully decoded img 1.")
+        np_arr_image = np.frombuffer(msg.image2.data, np.uint8)
+        ground_img_2 = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
+        rospy.loginfo("Successfully decoded img 2.")
+        np_arr_image = np.frombuffer(msg.image3.data, np.uint8)
+        ground_img_3 = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
+        rospy.loginfo("Successfully decoded img 3.")
+        all_ground_images = [ground_img_1, ground_img_2, ground_img_3]
 
-        num_images_for_id = 1
-        if casualty_id in self.image_dict.keys():
-            num_images_for_id = len(self.image_dict[casualty_id]) + 1
+        # load all previous images
+        with portalocker.Lock(self.image_data_path, timeout=1):
+            image_df = pd.read_csv(self.image_data_path)
+            
+        num_images_for_id = 3
+        if casualty_id in image_df["casualty_id"].values:
+            num_images_for_id = len(image_df[image_df["casualty_id"] == casualty_id]) + 3
         rospy.loginfo(f"Received {num_images_for_id} images for casualty ID {casualty_id}.")
-
-        img_path = os.path.join(
-            self.run_dir, str(casualty_id), f"ground_img_{num_images_for_id}.png"
-        )
-        os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True)
 
         if num_images_for_id > 6:
             rospy.loginfo("Received more than 6 images for same casualty ID.")
             return False
         
-        if casualty_id not in self.image_dict.keys():
-            self.image_dict[casualty_id] = []
-        self.image_dict[casualty_id].append(img_path)
-        cv2.imwrite(img_path, ground_img)
-        rospy.loginfo("Successfully wrote img to file.")
+        img_paths = [os.path.join(
+            self.run_dir, str(casualty_id), f"ground_img_{i}.png") for i in range(num_images_for_id - 3, num_images_for_id)
+        ]
+        os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True)
 
-        if num_images_for_id == 1:
-            rospy.loginfo("Received first image, triggering VLM.")
-            # trigger a callback that sends image path and casualty id to new node
-            
-            msg = ReceivedImageData()
-            msg.casualty_id = casualty_id
-            msg.image_path_list = [img_path]
+        for img_path, ground_img in zip(img_paths, all_ground_images):
+            # write into the image df
+            image_df = image_df._append({"casualty_id": casualty_id, "img_path": img_path}, ignore_index=True)
+            cv2.imwrite(img_path, ground_img)
+            rospy.loginfo(f"Added new image to Dataframe and saved image at {img_path}.")
 
-            self.image_path_publisher.publish(msg)
-            rospy.loginfo("Successfully published image.")
-
-        if num_images_for_id == 6:
-            rospy.loginfo("Received all images for casualty ID, triggering VLM.")
-            all_image_paths = self.image_dict[casualty_id]
-            all_image_paths = all_image_paths
-            
-            msg = ReceivedImageData()
-            msg.casualty_id = casualty_id
-            msg.image_path_list = all_image_paths
-
-            self.image_path_publisher.publish(msg)
-            rospy.loginfo("Successfully published all images.")
+        with portalocker.Lock(self.image_data_path, timeout=1):
+            image_df.to_csv(self.image_data_path, index=False)
+        rospy.loginfo("Successfully wrote all images to files.")            
+        
+        msg = ReceivedImageData()
+        msg.casualty_id = casualty_id
+        msg.image_path_list = img_paths
+        self.image_path_publisher.publish(msg)
+        rospy.loginfo("Successfully published image message.")
 
         return True
 
