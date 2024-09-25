@@ -414,6 +414,8 @@ LABEL_CLASSES = [
     "trauma_upper_ext",
     "alertness_ocular",
     "severe_hemorrhage",
+    "alertness_motor",
+    "alertness_verbal",
 ]
 
 LABEL_MEANINGS_INT_TO_STR = {
@@ -444,6 +446,18 @@ LABEL_MEANINGS_INT_TO_STR = {
         0: "absence",
         1: "presence",
     },
+    "alertness_motor": {
+        0: "normal",
+        1: "abnormal",
+        2: "absence",
+        3: "untestable",
+    }
+        "alertness_verbal": {
+        0: "normal",
+        1: "abnormal",
+        2: "absence",
+        3: "untestable",
+    }
 }
 
 LABEL_MEANINGS_STR_TO_INT = {
@@ -473,6 +487,18 @@ LABEL_MEANINGS_STR_TO_INT = {
     "severe_hemorrhage": {
         "absence": 0,
         "presence": 1,
+    },
+    "alertness_motor": {
+        "normal": 0,
+        "abnormal": 1,
+        "absence": 2,
+        "untestable": 3,
+    },
+    "alertness_verbal": {
+        "normal": 0,
+        "abnormal": 1,
+        "absence": 2,
+        "untestable": 3,
     },
 }
 
