@@ -827,11 +827,20 @@ class VLMNode:
             streamer = TextStreamer(
                 self.tokenizer, skip_prompt=False, skip_special_tokens=True
             )
+
+            # resize to make sure we don't run out of memory
+            images = [img.resize((256, 256)) for img in images]
             image_sizes = [img.size for img in images]
+
+            # process the images and run the model
+            image_tensor = process_images(
+                images, self.image_processor, self.model.config
+            ).half()
+            
             with torch.inference_mode():
                 tokenized_response = self.model.generate(
                     tokenized_prompt,
-                    images=images,
+                    images=image_tensor,
                     image_sizes=image_sizes,
                     do_sample=True if self.temperature > 0 else False,
                     temperature=self.temperature,
