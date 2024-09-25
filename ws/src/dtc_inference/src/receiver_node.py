@@ -15,7 +15,6 @@ from dtc_inference.msg import ReceivedSignal, ReceivedImageData
 from std_msgs.msg import String
 from gone.msg import GroundDetection, GroundImage
 from tdd2.msg import TDDetection
-from cv_bridge import CvBridge
 
 import os
 
@@ -48,13 +47,19 @@ class WSReceiverNode:
         )
         os.makedirs(self.run_dir, exist_ok=True)
 
-        self.bridge = CvBridge()
         self.model_path = rospy.get_param(
             "model_path",
             "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov/",
         )
         self.device = rospy.get_param("device", "gpu")
         rospy.loginfo(f"Set up device {self.device}.")
+
+        # create a file to store the seen whisper texts
+        self.seen_whisper_texts_path = rospy.get_param("seen_whisper_texts",
+            os.path.join(self.run_dir, "seen_whisper_texts.csv")
+        )
+        _df = pd.DataFrame(columns=["casualty_id", "whisper_id"])
+        _df.to_csv(self.seen_whisper_texts_path, index=False)
 
         # TODO: don't do creation here in case of crashes, this will overwrite data
         # create id to gps database
@@ -253,6 +258,20 @@ class WSReceiverNode:
         cv_heart_rate = msg.cv_heart_rate.data
         robot_name = msg.header.frame_id
         rospy.loginfo("Successfully parsed msg.")
+
+        with portalocker.Lock(self.seen_whisper_texts_path, timeout=1):
+            seen_whisper_texts_df = pd.read_csv(self.seen_whisper_texts_path)
+        # check the smallest id for the whisper text
+        if len(seen_whisper_texts_df) > 0:
+            smallest_id = seen_whisper_texts_df["whisper_id"].min()
+        else:
+            smallest_id = 0
+
+        if smallest_id < 2:
+            # save whisper text to a .txt file
+            with open(os.path.join(self.run_dir, str(casualty_id), "whisper.txt"), "w") as f:
+                f.write(whisper)
+            rospy.loginfo("Successfully saved whisper text.")
 
         append_dict = {
             "robot_name": robot_name,

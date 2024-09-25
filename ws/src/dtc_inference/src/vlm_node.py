@@ -359,8 +359,6 @@ class VLMNode:
         self.seen_whisper_texts_path = rospy.get_param("seen_whisper_texts",
             os.path.join(self.run_dir, "seen_whisper_texts.csv")
         )
-        _df = pd.DataFrame(columns=["casualty_id", "whisper_id"])
-        _df.to_csv(self.seen_whisper_texts_path, index=False)
 
         # create subscriber to drone and ground
         self.image_sub = rospy.Subscriber(
