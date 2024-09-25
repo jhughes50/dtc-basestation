@@ -263,11 +263,6 @@ def parse_dict_response(response, label_class):
         ]:
             return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for alertness_ocular are: open, closed, untestable "
 
-    # for key in LABEL_CLASSES:
-    #     if key not in response.keys():
-    #         return f"The entry for key {key} seems to be missing. Please provide a response in the format requested."
-
-    # parse response string to int
     parsed_response = parse_label_dict_str_to_int(response)
 
     return parsed_response
@@ -331,11 +326,6 @@ def old_parse_dict_response(response, label_class):
         ]:
             return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for alertness_ocular are: open, closed, untestable "
 
-    # for key in LABEL_CLASSES:
-    #     if key not in response.keys():
-    #         return f"The entry for key {key} seems to be missing. Please provide a response in the format requested."
-
-    # parse response string to int
     parsed_response = parse_label_dict_str_to_int(response)
 
     return parsed_response
@@ -488,6 +478,9 @@ class VLMNode:
             context_string += desc_dict["value-scene"][0]
             if label_class is None:
                 for cls in LABEL_CLASSES:
+                    if cls == "alertness_motor" or cls == "alertness_verbal":
+                        continue
+
                     context_string += desc_dict[cls][0]
                 # context_string += desc_dict["value-dict"]
                 context_string += "\n"
@@ -511,6 +504,9 @@ class VLMNode:
         final_prompt_paths = dict(final_prompt_paths)
 
         for label_class in LABEL_CLASSES:
+            if label_class == "alertness_motor" or label_class == "alertness_verbal":
+                continue
+
             with open(final_prompt_paths[label_class], "r") as f:
                 final_prompts[label_class] = f.read()
 
@@ -780,6 +776,9 @@ class VLMNode:
 
         all_prompts = []
         for label_class in LABEL_CLASSES:
+            if label_class == "alertness_motor" or label_class == "alertness_verbal":
+                continue
+
             final_prompt = final_prompt_dict[label_class]
 
             success = False
