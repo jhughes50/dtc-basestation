@@ -681,23 +681,15 @@ class ScorecardSenderNode:
                 # if the casualty id is in the database, there might be multiple entries for it
                 # we iterate over all entries, and update the values the first time they are empty
                 for idx, row in database.iterrows():
-                    if row["casualty_id"] == casualty_id:
-                        if pd.isna(row["trauma_head"]):
-                            database.loc[idx, "trauma_head"] = msg.trauma_head
-                        if pd.isna(row["trauma_torso"]):
-                            database.loc[idx, "trauma_torso"] = msg.trauma_torso
-                        if pd.isna(row["trauma_lower_ext"]):
-                            database.loc[idx, "trauma_lower_ext"] = msg.trauma_lower_ext
-                        if pd.isna(row["trauma_upper_ext"]):
-                            database.loc[idx, "trauma_upper_ext"] = msg.trauma_upper_ext
-                        if pd.isna(row["alertness_ocular"]):
-                            database.loc[idx, "alertness_ocular"] = msg.alertness_ocular
-                        if pd.isna(row["severe_hemorrhage"]):
-                            database.loc[idx, "severe_hemorrhage"] = msg.severe_hemorrhage
-                        if pd.isna(row["alertness_motor"]):
-                            database.loc[idx, "alertness_motor"] = msg.alertness_motor
-                        if pd.isna(row["alertness_verbal"]):
-                            database.loc[idx, "alertness_verbal"] = msg.alertness_verbal
+                    if row["casualty_id"] == casualty_id and pd.isna(row["trauma_head"]):
+                        database.loc[idx, "trauma_head"] = msg.trauma_head
+                        database.loc[idx, "trauma_torso"] = msg.trauma_torso
+                        database.loc[idx, "trauma_lower_ext"] = msg.trauma_lower_ext
+                        database.loc[idx, "trauma_upper_ext"] = msg.trauma_upper_ext
+                        database.loc[idx, "alertness_ocular"] = msg.alertness_ocular
+                        database.loc[idx, "severe_hemorrhage"] = msg.severe_hemorrhage
+                        database.loc[idx, "alertness_motor"] = msg.alertness_motor
+                        database.loc[idx, "alertness_verbal"] = msg.alertness_verbal
                         break
 
                     # if we make it to the end and all entries are full, we add a new row
@@ -798,8 +790,7 @@ class ScorecardSenderNode:
                 # if the casualty id is in the database, there might be multiple entries for it
                 # we iterate over all entries, and update the values the first time they are empty
                 for idx, row in database.iterrows():
-                    if row["casualty_id"] == casualty_id:
-                        if pd.isna(row["heart_rate"]) and pd.isna(row["respiratory_rate"]):
+                    if row["casualty_id"] == casualty_id and pd.isna(row["heart_rate"]):
                             database.loc[idx, "heart_rate"] = heart_rate
                             database.loc[idx, "respiratory_rate"] = respiratory_rate
                             break
