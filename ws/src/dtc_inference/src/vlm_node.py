@@ -276,6 +276,7 @@ def parse_dict_response(response, label_class):
             "untestable",
         ]:
             return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for alertness_verbal are: normal, abnormal, absence, untestable "
+            
 
     parsed_response = parse_label_dict_str_to_int(response)
 
@@ -937,12 +938,12 @@ class VLMNode:
         image_path_list = msg.image_path_list
         rospy.loginfo(f"Successfully parsed message in VLM node.")
 
-        # Check if the image_path_list starts with the 0th path
+        # Check if the image_path_list starts with the 0th path in the filename
         # or the 3rd path. 
-        if "0" in image_path_list[0]:
+        if "0" in os.basename(image_path_list[0]):
             round_number = 0
-        elif "3" in image_path_list[0]:
-            round_number = 3
+        elif "3" in os.basename(image_path_list[0]):
+            round_number = 1
         else:
             rospy.logerr(f"Could not determine round number from image_path_list: {image_path_list}")
 
