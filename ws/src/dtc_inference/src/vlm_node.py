@@ -940,9 +940,9 @@ class VLMNode:
 
         # Check if the image_path_list starts with the 0th path in the filename
         # or the 3rd path. 
-        if "0" in os.basename(image_path_list[0]):
+        if "0" in os.path.basename(image_path_list[0]):
             round_number = 0
-        elif "3" in os.basename(image_path_list[0]):
+        elif "3" in os.path.basename(image_path_list[0]):
             round_number = 1
         else:
             rospy.logerr(f"Could not determine round number from image_path_list: {image_path_list}")
