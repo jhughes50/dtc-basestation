@@ -146,12 +146,12 @@ class WSReceiverNode:
         with portalocker.Lock(self.id_to_gps_path, timeout=1):
             df = pd.read_csv(self.id_to_gps_path)
 
-        if len(df[df["casualty_id"] == msg.casualty_id]) > 0:
+        casualty_id = msg.casuality_id.data
+        if len(df[df["casualty_id"] == casualty_id]) > 0:
             return False
         
         lat = msg.gps.latitude
         long = msg.gps.longitude
-        casualty_id = msg.casuality_id
         np_arr_image = np.frombuffer(msg.image.data, np.uint8)
         drone_img = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
 
@@ -235,7 +235,7 @@ class WSReceiverNode:
         with portalocker.Lock(self.database_path, timeout=1):
             database_df = pd.read_csv(self.database_path)
 
-        casualty_id = msg.casualty_id
+        casualty_id = msg.casualty_id.data
         if len(database_df[database_df["casualty_id"] == casualty_id]) > 1:
             return False
         
@@ -256,8 +256,13 @@ class WSReceiverNode:
             smallest_id = 0
 
         if smallest_id < 2:
+            os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True) 
+            
+            if "Timeout: No speech detected" in whisper:
+                whisper = " "
+
             # save whisper text to a .txt file
-            with open(os.path.join(self.run_dir, str(casualty_id), "whisper.txt"), "w") as f:
+            with open(os.path.join(self.run_dir, str(casualty_id), f"whisper_{smallest_id}.txt"), "w") as f:
                 f.write(whisper)
             rospy.loginfo("Successfully saved whisper text.")
 
