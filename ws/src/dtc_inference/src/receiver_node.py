@@ -156,10 +156,11 @@ class WSReceiverNode:
         Returns:
             bool: Whether or not new instance was added.
         """
+        rospy.loginfo("Received drone image")
         with portalocker.Lock(self.id_to_gps_path, "r+", timeout=1):
             df = pd.read_csv(self.id_to_gps_path)
 
-            casualty_id = msg.casuality_id.data
+            casualty_id = msg.casualty_id
             if len(df[df["casualty_id"] == casualty_id]) > 0:
                 return False
             
@@ -167,9 +168,10 @@ class WSReceiverNode:
             long = msg.gps.longitude
             np_arr_image = np.frombuffer(msg.image.data, np.uint8)
             drone_img = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
+            rospy.loginfo("Successfully decoded drone image.")
 
             img_path = os.path.join(
-                self.run_dir, casualty_id, f"drone_img.png"
+                self.run_dir, str(casualty_id), f"drone_img.png"
             )
 
             append_dict = {
@@ -181,7 +183,9 @@ class WSReceiverNode:
             # add vlm predictions to the append_dict
             df = df._append(append_dict, ignore_index=True)
             df.to_csv(self.id_to_gps_path, index=False, mode="w")
+            rospy.loginfo("Appended to id_to_gps DF")
 
+        os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True)
         cv2.imwrite(img_path, drone_img)
 
         return True
