@@ -654,6 +654,71 @@ class ScorecardSenderNode:
     def image_callback(self, msg):
         casualty_id = msg.casualty_id
         
+        # load the database
+        with portalocker.Lock(self.database_path, "w") as f:
+            database = pd.read_csv(f)
+
+            # update the database
+            # first, check if the casualty id is in the database
+            # if not, we add the casualty id with the values from the signal
+            if casualty_id not in database["casualty_id"].values:
+                new_row = pd.DataFrame(
+                    {
+                        "casualty_id": [casualty_id],
+                        "trauma_head": [agg_res["trauma_head"]],
+                        "trauma_torso": [agg_res["trauma_torso"]],
+                        "trauma_lower_ext": [agg_res["trauma_lower_ext"]],
+                        "trauma_upper_ext": [agg_res["trauma_upper_ext"]],
+                        "alertness_ocular": [agg_res["alertness_ocular"]],
+                        "severe_hemorrhage": [agg_res["severe_hemorrhage"]],
+                        "alertness_motor": [agg_res["alertness_motor"]],
+                        "alertness_verbal": [agg_res["alertness_verbal"]],
+                    }
+                )
+                database = database.append(new_row, ignore_index=True)
+            else:
+                # if the casualty id is in the database, there might be multiple entries for it
+                # we iterate over all entries, and update the values the first time they are empty
+                for idx, row in database.iterrows():
+                    if row["casualty_id"] == casualty_id:
+                        if pd.isna(row["trauma_head"]):
+                            database.loc[idx, "trauma_head"] = agg_res["trauma_head"]
+                        if pd.isna(row["trauma_torso"]):
+                            database.loc[idx, "trauma_torso"] = agg_res["trauma_torso"]
+                        if pd.isna(row["trauma_lower_ext"]):
+                            database.loc[idx, "trauma_lower_ext"] = agg_res["trauma_lower_ext"]
+                        if pd.isna(row["trauma_upper_ext"]):
+                            database.loc[idx, "trauma_upper_ext"] = agg_res["trauma_upper_ext"]
+                        if pd.isna(row["alertness_ocular"]):
+                            database.loc[idx, "alertness_ocular"] = agg_res["alertness_ocular"]
+                        if pd.isna(row["severe_hemorrhage"]):
+                            database.loc[idx, "severe_hemorrhage"] = agg_res["severe_hemorrhage"]
+                        if pd.isna(row["alertness_motor"]):
+                            database.loc[idx, "alertness_motor"] = agg_res["alertness_motor"]
+                        if pd.isna(row["alertness_verbal"]):
+                            database.loc[idx, "alertness_verbal"] = agg_res["alertness_verbal"]
+                        break
+
+                    # if we make it to the end and all entries are full, we add a new row
+                    if idx == len(database) - 1:
+                        new_row = pd.DataFrame(
+                            {
+                                "casualty_id": [casualty_id],
+                                "trauma_head": [agg_res["trauma_head"]],
+                                "trauma_torso": [agg_res["trauma_torso"]],
+                                "trauma_lower_ext": [agg_res["trauma_lower_ext"]],
+                                "trauma_upper_ext": [agg_res["trauma_upper_ext"]],
+                                "alertness_ocular": [agg_res["alertness_ocular"]],
+                                "severe_hemorrhage": [agg_res["severe_hemorrhage"]],
+                                "alertness_motor": [agg_res["alertness_motor"]],
+                                "alertness_verbal": [agg_res["alertness_verbal"]],
+                            }
+                        )
+                        database = database.append(new_row, ignore_index=True)
+
+            # now save the new database
+            database.to_csv(f, index=False)
+
         # check if casualty_id is in message_dict
         if casualty_id not in self.message_dict.keys():
             self.message_dict[casualty_id] = []
@@ -696,54 +761,6 @@ class ScorecardSenderNode:
                     "alertness_verbal": alertness_verbal_list,
                 }
             )
-
-            # load the database
-            with portalocker.Lock(self.database_path, "w") as f:
-                database = pd.read_csv(f)
-
-                # update the database
-                # first, check if the casualty id is in the database
-                # if not, we add the casualty id with the values from the signal
-                if casualty_id not in database["casualty_id"].values:
-                    new_row = pd.DataFrame(
-                        {
-                            "casualty_id": [casualty_id],
-                            "trauma_head": [agg_res["trauma_head"]],
-                            "trauma_torso": [agg_res["trauma_torso"]],
-                            "trauma_lower_ext": [agg_res["trauma_lower_ext"]],
-                            "trauma_upper_ext": [agg_res["trauma_upper_ext"]],
-                            "alertness_ocular": [agg_res["alertness_ocular"]],
-                            "severe_hemorrhage": [agg_res["severe_hemorrhage"]],
-                            "alertness_motor": [agg_res["alertness_motor"]],
-                            "alertness_verbal": [agg_res["alertness_verbal"]],
-                        }
-                    )
-                    database = database.append(new_row, ignore_index=True)
-                else:
-                    # if the casualty id is in the database, there might be multiple entries for it
-                    # we iterate over all entries, and update the values the first time they are empty
-                    for idx, row in database.iterrows():
-                        if row["casualty_id"] == casualty_id:
-                            if pd.isna(row["trauma_head"]):
-                                database.loc[idx, "trauma_head"] = agg_res["trauma_head"]
-                            if pd.isna(row["trauma_torso"]):
-                                database.loc[idx, "trauma_torso"] = agg_res["trauma_torso"]
-                            if pd.isna(row["trauma_lower_ext"]):
-                                database.loc[idx, "trauma_lower_ext"] = agg_res["trauma_lower_ext"]
-                            if pd.isna(row["trauma_upper_ext"]):
-                                database.loc[idx, "trauma_upper_ext"] = agg_res["trauma_upper_ext"]
-                            if pd.isna(row["alertness_ocular"]):
-                                database.loc[idx, "alertness_ocular"] = agg_res["alertness_ocular"]
-                            if pd.isna(row["severe_hemorrhage"]):
-                                database.loc[idx, "severe_hemorrhage"] = agg_res["severe_hemorrhage"]
-                            if pd.isna(row["alertness_motor"]):
-                                database.loc[idx, "alertness_motor"] = agg_res["alertness_motor"]
-                            if pd.isna(row["alertness_verbal"]):
-                                database.loc[idx, "alertness_verbal"] = agg_res["alertness_verbal"]
-                            break
-
-                # now save the new database
-                database.to_csv(f, index=False)
             
             scorecard_frame = pd.DataFrame(columns=["type", "value"])
             for key in agg_res.keys():
@@ -787,7 +804,18 @@ class ScorecardSenderNode:
                             database.loc[idx, "heart_rate"] = heart_rate
                             database.loc[idx, "respiratory_rate"] = respiratory_rate
                             break
-
+                
+                    # if we make it to the end and all entries are full, we add a new row
+                    if idx == len(database) - 1:
+                        new_row = pd.DataFrame(
+                            {
+                                "casualty_id": [casualty_id],
+                                "heart_rate": [heart_rate],
+                                "respiratory_rate": [respiratory_rate],
+                            }
+                        )
+                        database = database.append(new_row, ignore_index=True)
+                        
             # now save the new database
             database.to_csv(f, index=False)
                     
