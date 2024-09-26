@@ -982,7 +982,7 @@ class VLMNode:
             # if no, create a new entry
             if casualty_id not in df["casualty_id"].values:
                 rospy.loginfo(f"Did not find casualty_id {casualty_id} in database. Appending new row.")
-                df = df._append(new_row)
+                df = df._append(new_row, ignore_index=True)
             else: 
                 rospy.loginfo(f"Found casualty_id {casualty_id} in database. Updating row.")
                 # in this case, we need to iterate over the rows
@@ -1005,7 +1005,7 @@ class VLMNode:
                     # we need to append a new row
                     if idx == len(df) - 1 and not found_one:
                         rospy.loginfo(f"Did not find row to update while iterating. Appending new row.")
-                        df = df._append(new_row)
+                        df = df._append(new_row, ignore_index=True)
 
             df.to_csv(f, index=False, mode="w", header=False)
 
@@ -1041,7 +1041,7 @@ class VLMNode:
                 # add to the seen drone images
                 with portalocker.Lock(self.seen_drone_images_path, "r+") as f:
                     df = pd.read_csv(f)
-                    df = df._append({"casualty_id": casualty_id})
+                    df = df._append({"casualty_id": casualty_id}, ignore_index=True)
                     df.to_csv(f, index=False, mode="w", header=False)
 
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
@@ -1079,7 +1079,7 @@ class VLMNode:
                     "alertness_ocular": alert_oc_list[-1],
                     "severe_hemorrhage": sev_hem_list[-1],
                 }
-                df = df._append(pd.DataFrame(new_row))
+                df = df._append(pd.DataFrame(new_row), ignore_index=True)
                 df.to_csv(f, index=False, mode="w", header=False)
                 
         ### CONTINUE TO WHISPER
@@ -1110,7 +1110,7 @@ class VLMNode:
                     with portalocker.Lock(self.seen_whisper_texts_path, "r+") as f:
                         append_dict = {"whisper_id": int(idx), "whisper_text": whisper}
                         df = pd.read_csv(f)
-                        df = df._append(append_dict)
+                        df = df._append(append_dict, ignore_index=True)
                         df.to_csv(f, index=False, mode="w", header=False)
                 else:
                     rospy.loginfo(f"Did not find whisper string for casualty_id {casualty_id} and whisper_id {idx}. Skipping whisper string.")
