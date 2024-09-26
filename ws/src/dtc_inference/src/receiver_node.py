@@ -42,8 +42,9 @@ LABEL_CLASSES = [
 class WSReceiverNode:
     def __init__(self):
         # create a run directory with a timestamp
+        run_name = rospy.get_param("run_name", time.strftime("%Y%m%d_%H%M%S"))
         self.run_dir = (
-            f"/home/{getpass.getuser()}/data/{time.strftime('%Y%m%d_%H%M%S')}/"
+            f"/home/{getpass.getuser()}/data/{run_name}/"
         )
         os.makedirs(self.run_dir, exist_ok=True)
 
@@ -55,56 +56,50 @@ class WSReceiverNode:
         rospy.loginfo(f"Set up device {self.device}.")
 
         # create a file to store the seen whisper texts
-        self.seen_whisper_texts_path = rospy.get_param("seen_whisper_texts",
-            os.path.join(self.run_dir, "seen_whisper_texts.csv")
-        )
-        _df = pd.DataFrame(columns=["casualty_id", "whisper_id"])
-        _df.to_csv(self.seen_whisper_texts_path, index=False)
 
-        # TODO: don't do creation here in case of crashes, this will overwrite data
-        # create id to gps database
-        self.id_to_gps_path = rospy.get_param(
-            "id_to_gps_path", os.path.join(self.run_dir, "id_to_gps.csv")
-        )
-        _df = pd.DataFrame(
-            columns=["casualty_id", "lat", "long", "img_path"]
-        )
-        _df.to_csv(self.id_to_gps_path, index=False)
-        rospy.loginfo(f"Created file at {self.id_to_gps_path}.")
+        self.seen_whisper_texts_path = os.path.join(self.run_dir, "seen_whisper_texts.csv")
+        # if files do not exist, create it
+        if not os.path.exists(self.seen_whisper_texts_path):
+            _df = pd.DataFrame(columns=["casualty_id", "whisper_id"])
+            _df.to_csv(self.seen_whisper_texts_path, index=False)
+            rospy.loginfo(f"Created file at {self.seen_whisper_texts_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.seen_whisper_texts_path}. Continuing.")
 
-        # create prediction database
-        self.database_path = rospy.get_param(
-            "id_to_gps_path", os.path.join(self.run_dir, "database.csv")
-        )
-        _df = pd.DataFrame(
-            columns=[
-                "robot_name",
-                "casualty_id",
-                "lat",
-                "long",
-                "img_1",
-                "img_2",
-                "img_3",
-                "hr_model",
-                "hr_cv",
-                "rr",
-                "motion",
-                "whisper",
-                *LABEL_CLASSES,
-            ]
-        )
-        _df.to_csv(self.database_path, index=False)
-        rospy.loginfo(f"Created file at {self.database_path}.")
+        self.id_to_gps_path = os.path.join(self.run_dir, "id_to_gps.csv")
+        if not os.path.exists(self.id_to_gps_path):
+            _df = pd.DataFrame(
+                columns=["casualty_id", "lat", "long", "img_path"]
+            )
+            _df.to_csv(self.id_to_gps_path, index=False)
+            rospy.loginfo(f"Created file at {self.id_to_gps_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.id_to_gps_path}. Continuing.")
 
-        self.image_data_path = rospy.get_param(
-            "image_data_path", os.path.join(self.run_dir, "image_data.csv")
-        )
-        _df = pd.DataFrame(
-            columns=["casualty_id", "img_path"]
-        )
-        _df.to_csv(self.image_data_path, index=False)
-        rospy.loginfo(f"Created file at {self.image_data_path}.")
+        self.database_path = os.path.join(self.run_dir, "database.csv")
+        if not os.path.exists(self.database_path):
+            _df = pd.DataFrame(
+                columns=[
+                    "casualty_id",
+                    "heart_rate",
+                    "respiratory_rate",
+                    *LABEL_CLASSES,
+                ]
+            )
+            _df.to_csv(self.database_path, index=False)
+            rospy.loginfo(f"Created file at {self.database_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.database_path}. Continuing.")
 
+        self.image_data_path = os.path.join(self.run_dir, "image_data.csv")
+        if not os.path.exists(self.image_data_path):
+            _df = pd.DataFrame(
+                columns=["casualty_id", "img_path"]
+            )
+            _df.to_csv(self.image_data_path, index=False)
+            rospy.loginfo(f"Created file at {self.image_data_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.image_data_path}. Continuing.")
         
         robot_name = rospy.get_param("~ground_robot")
         drone_name = rospy.get_param("~aerial_robot")
@@ -181,8 +176,6 @@ class WSReceiverNode:
 
     def ground_image_callback(self, msg):
         print("Received Image Message")
-        timestamp = msg.header.stamp
-        robot_name = msg.header.frame_id
         casualty_id = msg.casualty_id.data
 
         # TODO: adjust this with jason
@@ -239,8 +232,6 @@ class WSReceiverNode:
         Args:
             msg (GroundDetection): Message containing gps and the detection values
         """
-        start_time_callback = time.time()
-
         with portalocker.Lock(self.database_path, timeout=1):
             database_df = pd.read_csv(self.database_path)
 
@@ -250,17 +241,14 @@ class WSReceiverNode:
         
         # Parse the message
         rospy.loginfo("Received Ground Message")
-        gps = msg.gps
         whisper = msg.whisper.data
         acc_respiration_rate = msg.acconeer_respiration_rate.data
-        event_respiration_rate = msg.event_respiration_rate.data
         neural_heart_rate = msg.neural_heart_rate.data
-        cv_heart_rate = msg.cv_heart_rate.data
-        robot_name = msg.header.frame_id
         rospy.loginfo("Successfully parsed msg.")
 
         with portalocker.Lock(self.seen_whisper_texts_path, timeout=1):
             seen_whisper_texts_df = pd.read_csv(self.seen_whisper_texts_path)
+        
         # check the smallest id for the whisper text
         if len(seen_whisper_texts_df) > 0:
             smallest_id = seen_whisper_texts_df["whisper_id"].min()
@@ -272,24 +260,6 @@ class WSReceiverNode:
             with open(os.path.join(self.run_dir, str(casualty_id), "whisper.txt"), "w") as f:
                 f.write(whisper)
             rospy.loginfo("Successfully saved whisper text.")
-
-        append_dict = {
-            "robot_name": robot_name,
-            "casualty_id": casualty_id,
-            "lat": gps.latitude,
-            "long": gps.longitude,
-            "neural_heart_rate": neural_heart_rate,
-            "cv_heart_rate": cv_heart_rate,
-            "event_respiration_rate": event_respiration_rate,
-            "acc_respiration_rate": acc_respiration_rate,
-            "whisper": whisper,
-        }       
-
-        database_df = database_df._append(append_dict, ignore_index=True)
-
-        with portalocker.Lock(self.database_path, timeout=1):
-            database_df.to_csv(self.database_path, index=False)
-        rospy.loginfo("Successfully wrote to database.")
 
         msg = ReceivedSignal()
         msg.casualty_id = casualty_id

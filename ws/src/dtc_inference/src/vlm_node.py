@@ -348,26 +348,35 @@ class VLMNode:
         self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
 
         # create a file to store the ids with seen drone images
-        self.seen_drone_images_path = rospy.get_param("seen_drone_images",
-            os.path.join(self.run_dir, "seen_drone_images.csv")
+        self.seen_drone_images_path = os.path.join(
+            self.run_dir, "seen_drone_images.csv"
         )
-        _df = pd.DataFrame(columns=["casualty_id"])
-        _df.to_csv(self.seen_drone_images_path, index=False)
-        rospy.loginfo(f"Created seen drone images file at {self.seen_drone_images_path}.")
+        if not os.path.exists(self.seen_drone_images_path):
+            _df = pd.DataFrame(columns=["casualty_id"])
+            _df.to_csv(self.seen_drone_images_path, index=False)
+            rospy.loginfo(f"Created seen drone images file at {self.seen_drone_images_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.seen_drone_images_path}. Continuing.")
 
         # create a file to store the seen whisper texts
-        self.seen_whisper_texts_path = rospy.get_param("seen_whisper_texts",
-            os.path.join(self.run_dir, "seen_whisper_texts.csv")
+        self.seen_whisper_texts_path = os.path.join(
+            self.run_dir, "seen_whisper_texts.csv"
         )
+        if not os.path.exists(self.seen_whisper_texts_path):
+            _df = pd.DataFrame(columns=["whisper_id", "whisper_text"])
+            _df.to_csv(self.seen_whisper_texts_path, index=False)
+            rospy.loginfo(f"Created seen whisper texts file at {self.seen_whisper_texts_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.seen_whisper_texts_path}. Continuing.")
 
         # create subscriber to drone and ground
         self.image_sub = rospy.Subscriber(
             "/received_images", ReceivedImageData, self.vlm_callback
         )
-        rospy.loginfo(f"Created subscribers to drone and ground.")
         self.image_analysis_publisher = rospy.Publisher(
             "/image_analysis_results", ImageAnalysisResult, queue_size=2
         )
+        rospy.loginfo("Created subscribers to /received_images and publishers to /image_analysis_results.")
 
         # load the VLM model into memory once
         disable_torch_init()
@@ -922,6 +931,15 @@ class VLMNode:
         image_path_list = msg.image_path_list
         rospy.loginfo(f"Successfully parsed message in VLM node.")
 
+        # Check if the image_path_list starts with the 0th path
+        # or the 3rd path. 
+        if "0" in image_path_list[0]:
+            round_number = 0
+        elif "3" in image_path_list[0]:
+            round_number = 3
+        else:
+            rospy.logerr(f"Could not determine round number from image_path_list: {image_path_list}")
+
         num_images = len(image_path_list)
         rospy.loginfo(f"Received {num_images} image paths in VLM, starting prediction.")
 
@@ -942,7 +960,7 @@ class VLMNode:
 
         # save the ground prompts into the directory that contains the image
         for i, prompt in enumerate(ground_vlm_prompts):
-            with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}.txt"), "w") as f:
+            with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}_round_number.txt"), "w") as f:
                 f.write(prompt)
         rospy.loginfo(f"Successfully saved ground prompts.")
 

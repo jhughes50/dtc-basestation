@@ -5,26 +5,14 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-import importlib
-import copy
-import json
-import time
-from math import radians, cos, sin, atan2, sqrt
-import portalocker
-import getpass
-
 import rospy
-from tdd2.msg import TDDetection
+from std_msgs.msg import String
 from dtc_inference.msg import ReceivedSignal, ImageAnalysisResult
 
 import os
 import requests
-
-
-import numpy as np
 import pandas as pd
-import cv2
-from PIL import Image
+import portalocker
 
 
 # fmt: off
@@ -605,6 +593,7 @@ def parse_dict_response(response, label_class):
 
 class ScorecardSenderNode:
     def __init__(self):
+        self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
         self.vlm_sub_1 = rospy.Subscriber(
             "/image_analysis_results", ImageAnalysisResult, self.image_callback
         ) # TODO: fix this
@@ -613,7 +602,7 @@ class ScorecardSenderNode:
         )
 
         self.message_dict = {}
-
+        self.database_path = os.path.join(self.run_dir, "database.csv")
         self.scoring_client = ScoringClient(ip="http://172.17.0.1:8000")
 
     def _aggregate_results(self, results):
@@ -707,6 +696,54 @@ class ScorecardSenderNode:
                     "alertness_verbal": alertness_verbal_list,
                 }
             )
+
+            # load the database
+            with portalocker.Lock(self.database_path, "w") as f:
+                database = pd.read_csv(f)
+
+                # update the database
+                # first, check if the casualty id is in the database
+                # if not, we add the casualty id with the values from the signal
+                if casualty_id not in database["casualty_id"].values:
+                    new_row = pd.DataFrame(
+                        {
+                            "casualty_id": [casualty_id],
+                            "trauma_head": [agg_res["trauma_head"]],
+                            "trauma_torso": [agg_res["trauma_torso"]],
+                            "trauma_lower_ext": [agg_res["trauma_lower_ext"]],
+                            "trauma_upper_ext": [agg_res["trauma_upper_ext"]],
+                            "alertness_ocular": [agg_res["alertness_ocular"]],
+                            "severe_hemorrhage": [agg_res["severe_hemorrhage"]],
+                            "alertness_motor": [agg_res["alertness_motor"]],
+                            "alertness_verbal": [agg_res["alertness_verbal"]],
+                        }
+                    )
+                    database = database.append(new_row, ignore_index=True)
+                else:
+                    # if the casualty id is in the database, there might be multiple entries for it
+                    # we iterate over all entries, and update the values the first time they are empty
+                    for idx, row in database.iterrows():
+                        if row["casualty_id"] == casualty_id:
+                            if pd.isna(row["trauma_head"]):
+                                database.loc[idx, "trauma_head"] = agg_res["trauma_head"]
+                            if pd.isna(row["trauma_torso"]):
+                                database.loc[idx, "trauma_torso"] = agg_res["trauma_torso"]
+                            if pd.isna(row["trauma_lower_ext"]):
+                                database.loc[idx, "trauma_lower_ext"] = agg_res["trauma_lower_ext"]
+                            if pd.isna(row["trauma_upper_ext"]):
+                                database.loc[idx, "trauma_upper_ext"] = agg_res["trauma_upper_ext"]
+                            if pd.isna(row["alertness_ocular"]):
+                                database.loc[idx, "alertness_ocular"] = agg_res["alertness_ocular"]
+                            if pd.isna(row["severe_hemorrhage"]):
+                                database.loc[idx, "severe_hemorrhage"] = agg_res["severe_hemorrhage"]
+                            if pd.isna(row["alertness_motor"]):
+                                database.loc[idx, "alertness_motor"] = agg_res["alertness_motor"]
+                            if pd.isna(row["alertness_verbal"]):
+                                database.loc[idx, "alertness_verbal"] = agg_res["alertness_verbal"]
+                            break
+
+                # now save the new database
+                database.to_csv(f, index=False)
             
             scorecard_frame = pd.DataFrame(columns=["type", "value"])
             for key in agg_res.keys():
@@ -725,6 +762,35 @@ class ScorecardSenderNode:
         heart_rate = msg.heart_rate
         respiratory_rate = msg.respiratory_rate
         
+        # load the database
+        with portalocker.Lock(self.database_path, "w") as f:
+            database = pd.read_csv(f)
+
+            # update the database
+            # first, check if the casualty id is in the database
+            # if not, we add the casualty id with the values from the signal
+            if casualty_id not in database["casualty_id"].values:
+                new_row = pd.DataFrame(
+                    {
+                        "casualty_id": [casualty_id],
+                        "heart_rate": [heart_rate],
+                        "respiratory_rate": [respiratory_rate],
+                    }
+                )
+                database = database.append(new_row, ignore_index=True)
+            else:
+                # if the casualty id is in the database, there might be multiple entries for it
+                # we iterate over all entries, and update the values the first time they are empty
+                for idx, row in database.iterrows():
+                    if row["casualty_id"] == casualty_id:
+                        if pd.isna(row["heart_rate"]) and pd.isna(row["respiratory_rate"]):
+                            database.loc[idx, "heart_rate"] = heart_rate
+                            database.loc[idx, "respiratory_rate"] = respiratory_rate
+                            break
+
+            # now save the new database
+            database.to_csv(f, index=False)
+                    
         scorecard_frame = pd.DataFrame(columns=["type", "value"])
         scorecard_frame = scorecard_frame._append(
             {"type": "heart_rate", "value": heart_rate}, ignore_index=True
