@@ -348,6 +348,7 @@ class VLMNode:
         self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
         self.database_path = os.path.join(self.run_dir, "database.csv")
         self.drone_database_path = os.path.join(self.run_dir, "drone_data.csv")
+        self.seen_whisper_texts_path = os.path.join(self.run_dir, "seen_whisper_texts.csv")
 
         # create a file to store the ids with seen drone images
         self.seen_drone_images_path = os.path.join(
