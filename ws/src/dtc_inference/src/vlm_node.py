@@ -262,6 +262,20 @@ def parse_dict_response(response, label_class):
             "untestable",
         ]:
             return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for alertness_ocular are: open, closed, untestable "
+        if key == "alertness_motor" and response[key] not in [
+            "normal",
+            "abnormal",
+            "absence",
+            "untestable",
+        ]:
+            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for alertness_motor are: normal, abnormal, absence, untestable "
+        if key == "alertness_verbal" and response[key] not in [
+            "normal",
+            "abnormal",
+            "absence",
+            "untestable",
+        ]:
+            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for alertness_verbal are: normal, abnormal, absence, untestable "
 
     parsed_response = parse_label_dict_str_to_int(response)
 
