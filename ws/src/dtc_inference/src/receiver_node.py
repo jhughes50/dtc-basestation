@@ -260,8 +260,8 @@ class WSReceiverNode:
         Args:
             msg (GroundDetection): Message containing gps and the detection values
         """
-        with portalocker.Lock(self.database_path, "r+", timeout=1):
-            database_df = pd.read_csv(self.database_path)
+        with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
+            database_df = pd.read_csv(self.signal_database_path)
 
         casualty_id = msg.casualty_id.data
         if len(database_df[database_df["casualty_id"] == casualty_id]) > 1:
@@ -275,15 +275,15 @@ class WSReceiverNode:
         rospy.loginfo("Successfully parsed msg.")
 
         # save the data into the database
-        with portalocker.Lock(self.database_path, "r+", timeout=1):
-            database_df = pd.read_csv(self.database_path)
+        with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
+            database_df = pd.read_csv(self.signal_database_path)
             append_dict = {
                 "casualty_id": casualty_id,
                 "heart_rate": neural_heart_rate,
                 "respiratory_rate": acc_respiration_rate,
             }
             database_df = database_df._append(append_dict, ignore_index=True)
-            database_df.to_csv(self.database_path, index=False, mode="w")
+            database_df.to_csv(self.signal_database_path, index=False, mode="w")
 
         # save the whisper text
         with portalocker.Lock(self.seen_whisper_texts_path, "r", timeout=1):
