@@ -940,9 +940,9 @@ class VLMNode:
 
         # Check if the image_path_list starts with the 0th path in the filename
         # or the 3rd path. 
-        if "0" in os.path.basename(image_path_list[0]):
+        if "0" in os.basename(image_path_list[0]):
             round_number = 0
-        elif "3" in os.path.basename(image_path_list[0]):
+        elif "3" in os.basename(image_path_list[0]):
             round_number = 1
         else:
             rospy.logerr(f"Could not determine round number from image_path_list: {image_path_list}")
@@ -1033,9 +1033,9 @@ class VLMNode:
             drone_img_list = None
         else:
             # Try to find the drone image
-            all_images_paths = glob.glob(os.path.join(os.path.dirname(image_path_list[0]), "drone_img.png"))
-            if len(all_images_paths) == 1:
-                drone_img_list = [Image.open(all_images_paths[0])]
+            all_drone_images_paths = glob.glob(os.path.join(os.path.dirname(image_path_list[0]), "drone_img.png"))
+            if len(all_drone_images_paths) == 1:
+                drone_img_list = [Image.open(all_drone_images_paths[0])]
                 rospy.loginfo(f"Found drone image for casualty_id {casualty_id}.")
                 
                 # add to the seen drone images
@@ -1063,7 +1063,7 @@ class VLMNode:
 
             # save the air prompts into the directory that contains the drone_image
             for i, prompt in enumerate(drone_vlm_prompts):
-                with open(os.path.join(os.path.dirname(drone_img_list[-1]), f"drone_prompt_{i}.txt"), "w") as f:
+                with open(os.path.join(os.path.dirname(all_drone_images_paths[-1]), f"drone_prompt_{i}.txt"), "w") as f:
                     f.write(prompt)
             rospy.loginfo(f"Successfully saved air prompts.")
 
