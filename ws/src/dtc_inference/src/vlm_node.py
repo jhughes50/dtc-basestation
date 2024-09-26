@@ -965,11 +965,12 @@ class VLMNode:
             # check if we have already seen the casualty_id
             # if no, create a new entry
             if casualty_id not in df["casualty_id"].values:
-                df = df._append(pd.DataFrame(new_row))
+                df = df._append(new_row)
             else: 
                 # in this case, we need to iterate over the rows
                 # and update the first row that has the casualty_id
                 # and "trauma_head" is NaN 
+                found_one = False
                 for idx, row in df.iterrows():
                     if row["casualty_id"] == casualty_id and np.isnan(row["trauma_head"]):
                         df.loc[idx, "trauma_head"] = trauma_head_list[-1]
@@ -978,11 +979,12 @@ class VLMNode:
                         df.loc[idx, "trauma_upper_ext"] = trauma_upper_ext_list[-1]
                         df.loc[idx, "alertness_ocular"] = alert_oc_list[-1]
                         df.loc[idx, "severe_hemorrhage"] = sev_hem_list[-1]
+                        found_one = True
                         break
 
                     # if we got to the end of the loop without finding a row to update
                     # we need to append a new row
-                    if idx == len(df) - 1:
+                    if idx == len(df) - 1 and not found_one:
                         df = df._append(new_row)
 
             df.to_csv(f, index=False, mode="w")
