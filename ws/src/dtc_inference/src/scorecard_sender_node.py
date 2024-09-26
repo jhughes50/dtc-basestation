@@ -655,7 +655,7 @@ class ScorecardSenderNode:
         casualty_id = msg.casualty_id
         
         # load the database
-        with portalocker.Lock(self.database_path, "w") as f:
+        with portalocker.Lock(self.database_path, "r+", timeout=1) as f:
             database = pd.read_csv(f)
 
             # update the database
@@ -675,7 +675,7 @@ class ScorecardSenderNode:
                         "alertness_verbal": [msg.alertness_verbal],
                     }
                 )
-                database = database.append(new_row, ignore_index=True)
+                database = database._append(new_row, ignore_index=True)
             else:
                 # if the casualty id is in the database, there might be multiple entries for it
                 # we iterate over all entries, and update the values the first time they are empty
@@ -714,7 +714,7 @@ class ScorecardSenderNode:
                                 "alertness_verbal": [msg.alertness_verbal],
                             }
                         )
-                        database = database.append(new_row, ignore_index=True)
+                        database = database._append(new_row, ignore_index=True)
 
             # now save the new database
             database.to_csv(f, index=False)
@@ -780,7 +780,7 @@ class ScorecardSenderNode:
         respiratory_rate = msg.respiratory_rate
         
         # load the database
-        with portalocker.Lock(self.database_path, "w") as f:
+        with portalocker.Lock(self.database_path, "r+", timeout=1) as f:
             database = pd.read_csv(f)
 
             # update the database

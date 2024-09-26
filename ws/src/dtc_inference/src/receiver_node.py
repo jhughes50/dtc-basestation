@@ -143,34 +143,33 @@ class WSReceiverNode:
         Returns:
             bool: Whether or not new instance was added.
         """
-        with portalocker.Lock(self.id_to_gps_path, timeout=1):
+        with portalocker.Lock(self.id_to_gps_path, "r+", timeout=1):
             df = pd.read_csv(self.id_to_gps_path)
 
-        casualty_id = msg.casuality_id.data
-        if len(df[df["casualty_id"] == casualty_id]) > 0:
-            return False
-        
-        lat = msg.gps.latitude
-        long = msg.gps.longitude
-        np_arr_image = np.frombuffer(msg.image.data, np.uint8)
-        drone_img = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
+            casualty_id = msg.casuality_id.data
+            if len(df[df["casualty_id"] == casualty_id]) > 0:
+                return False
+            
+            lat = msg.gps.latitude
+            long = msg.gps.longitude
+            np_arr_image = np.frombuffer(msg.image.data, np.uint8)
+            drone_img = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
 
-        img_path = os.path.join(
-            self.run_dir, casualty_id, f"drone_img.png"
-        )
-        cv2.imwrite(img_path, drone_img)
+            img_path = os.path.join(
+                self.run_dir, casualty_id, f"drone_img.png"
+            )
 
-        append_dict = {
-            "casualty_id": casualty_id,
-            "lat": lat,
-            "long": long,
-            "img_path": img_path,
-        }
-        # add vlm predictions to the append_dict
-        df = df._append(append_dict, ignore_index=True)
-
-        with portalocker.Lock(self.id_to_gps_path, timeout=1):
+            append_dict = {
+                "casualty_id": casualty_id,
+                "lat": lat,
+                "long": long,
+                "img_path": img_path,
+            }
+            # add vlm predictions to the append_dict
+            df = df._append(append_dict, ignore_index=True)
             df.to_csv(self.id_to_gps_path, index=False)
+
+        cv2.imwrite(img_path, drone_img)
 
         return True
 
@@ -191,30 +190,29 @@ class WSReceiverNode:
         all_ground_images = [ground_img_1, ground_img_2, ground_img_3]
 
         # load all previous images
-        with portalocker.Lock(self.image_data_path, timeout=1):
+        with portalocker.Lock(self.image_data_path, "r+", timeout=1):
             image_df = pd.read_csv(self.image_data_path)
             
-        num_images_for_id = 3
-        if casualty_id in image_df["casualty_id"].values:
-            num_images_for_id = len(image_df[image_df["casualty_id"] == casualty_id]) + 3
-        rospy.loginfo(f"Received {num_images_for_id} images for casualty ID {casualty_id}.")
+            num_images_for_id = 3
+            if casualty_id in image_df["casualty_id"].values:
+                num_images_for_id = len(image_df[image_df["casualty_id"] == casualty_id]) + 3
+            rospy.loginfo(f"Received {num_images_for_id} images for casualty ID {casualty_id}.")
 
-        if num_images_for_id > 6:
-            rospy.loginfo("Received more than 6 images for same casualty ID. Skipping.")
-            return False
-        
-        img_paths = [os.path.join(
-            self.run_dir, str(casualty_id), f"ground_img_{i}.png") for i in range(num_images_for_id - 3, num_images_for_id)
-        ]
-        os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True)
+            if num_images_for_id > 6:
+                rospy.loginfo("Received more than 6 images for same casualty ID. Skipping.")
+                return False
+            
+            img_paths = [os.path.join(
+                self.run_dir, str(casualty_id), f"ground_img_{i}.png") for i in range(num_images_for_id - 3, num_images_for_id)
+            ]
+            os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True)
 
-        for img_path, ground_img in zip(img_paths, all_ground_images):
-            # write into the image df
-            image_df = image_df._append({"casualty_id": casualty_id, "img_path": img_path}, ignore_index=True)
-            cv2.imwrite(img_path, ground_img)
-            rospy.loginfo(f"Added new image to Dataframe and saved image at {img_path}.")
+            for img_path, ground_img in zip(img_paths, all_ground_images):
+                # write into the image df
+                image_df = image_df._append({"casualty_id": casualty_id, "img_path": img_path}, ignore_index=True)
+                cv2.imwrite(img_path, ground_img)
+                rospy.loginfo(f"Added new image to Dataframe and saved image at {img_path}.")
 
-        with portalocker.Lock(self.image_data_path, timeout=1):
             image_df.to_csv(self.image_data_path, index=False)
         rospy.loginfo("Successfully wrote all images to files.")            
         
@@ -232,7 +230,7 @@ class WSReceiverNode:
         Args:
             msg (GroundDetection): Message containing gps and the detection values
         """
-        with portalocker.Lock(self.database_path, timeout=1):
+        with portalocker.Lock(self.database_path, "r+", timeout=1):
             database_df = pd.read_csv(self.database_path)
 
         casualty_id = msg.casualty_id.data

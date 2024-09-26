@@ -988,8 +988,9 @@ class VLMNode:
                 rospy.loginfo(f"Found drone image for casualty_id {casualty_id}.")
                 
                 # add to the seen drone images
-                with portalocker.Lock(self.seen_drone_images_path, "a") as f:
-                    df = pd.DataFrame._append({"casualty_id": [casualty_id]})
+                with portalocker.Lock(self.seen_drone_images_path, "r+") as f:
+                    df = pd.read_csv(f)
+                    df = df._append({"casualty_id": casualty_id})
                     df.to_csv(f, header=False, index=False)
 
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
@@ -1040,8 +1041,10 @@ class VLMNode:
                     whispers_to_check[idx] = whisper
 
                     # add to the seen whisper texts
-                    with portalocker.Lock(self.seen_whisper_texts_path, "a") as f:
-                        df = pd.DataFrame({"casualty_id": [casualty_id], "whisper_id": [idx]})
+                    with portalocker.Lock(self.seen_whisper_texts_path, "r+") as f:
+                        append_dict = {"whisper_id": [idx], "whisper_text": [whisper]}
+                        df = pd.read_csv(f)
+                        df = df._append(pd.DataFrame(append_dict))
                         df.to_csv(f, header=False, index=False)
                 else:
                     rospy.loginfo(f"Did not find whisper string for casualty_id {casualty_id} and whisper_id {idx}. Skipping whisper string.")
