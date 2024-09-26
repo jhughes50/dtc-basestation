@@ -1108,7 +1108,7 @@ class VLMNode:
 
                     # add to the seen whisper texts
                     with portalocker.Lock(self.seen_whisper_texts_path, "r+") as f:
-                        append_dict = {"whisper_id": int(idx), "whisper_text": whisper}
+                        append_dict = {"casualty_id": casualty_id, "whisper_id": idx}
                         df = pd.read_csv(f)
                         df = df._append(append_dict, ignore_index=True)
                         df.to_csv(f, index=False, mode="w", header=False)
