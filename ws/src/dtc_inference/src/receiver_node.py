@@ -91,6 +91,19 @@ class WSReceiverNode:
         else:
             rospy.loginfo(f"File already exists at {self.database_path}. Continuing.")
 
+        self.drone_database_path = os.path.join(self.run_dir, "drone_data.csv")
+        if not os.path.exists(self.drone_database_path):
+            _df = pd.DataFrame(
+                columns=[
+                    "casualty_id",
+                    *LABEL_CLASSES,
+                ]
+            )
+            _df.to_csv(self.drone_database_path, index=False)
+            rospy.loginfo(f"Created file at {self.drone_database_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.drone_database_path}. Continuing.")
+
         self.image_data_path = os.path.join(self.run_dir, "image_data.csv")
         if not os.path.exists(self.image_data_path):
             _df = pd.DataFrame(
@@ -244,6 +257,18 @@ class WSReceiverNode:
         neural_heart_rate = msg.neural_heart_rate.data
         rospy.loginfo("Successfully parsed msg.")
 
+        # save the data into the database
+        with portalocker.Lock(self.database_path, "r+", timeout=1):
+            database_df = pd.read_csv(self.database_path)
+            append_dict = {
+                "casualty_id": casualty_id,
+                "heart_rate": neural_heart_rate,
+                "respiratory_rate": acc_respiration_rate,
+            }
+            database_df = database_df._append(append_dict, ignore_index=True)
+            database_df.to_csv(self.database_path, index=False)
+
+        # save the whisper text
         with portalocker.Lock(self.seen_whisper_texts_path, timeout=1):
             seen_whisper_texts_df = pd.read_csv(self.seen_whisper_texts_path)
         

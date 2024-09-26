@@ -346,6 +346,8 @@ class VLMNode:
         rospy.loginfo(f"Set up device {self.device}.")
 
         self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
+        self.database_path = os.path.join(self.run_dir, "database.csv")
+        self.drone_database_path = os.path.join(self.run_dir, "drone_data.csv")
 
         # create a file to store the ids with seen drone images
         self.seen_drone_images_path = os.path.join(
@@ -958,9 +960,47 @@ class VLMNode:
         sev_hem_list = [int(ground_vlm_pred["severe_hemorrhage"])]
         rospy.loginfo(f"Successfully parsed ground labels.")
 
+        # append to database
+        with portalocker.Lock(self.database_path, "r+") as f:
+            df = pd.read_csv(f)
+            new_row = {
+                "casualty_id": casualty_id,
+                "trauma_head": trauma_head_list[-1],
+                "trauma_torso": trauma_torso_list[-1],
+                "trauma_lower_ext": trauma_lower_ext_list[-1],
+                "trauma_upper_ext": trauma_upper_ext_list[-1],
+                "alertness_ocular": alert_oc_list[-1],
+                "severe_hemorrhage": sev_hem_list[-1],
+            }
+            # check if we have already seen the casualty_id
+            # if no, create a new entry
+            if casualty_id not in df["casualty_id"].values:
+
+                df = df._append(pd.DataFrame(new_row))
+            else: 
+                # in this case, we need to iterate over the rows
+                # and update the first row that has the casualty_id
+                # and "trauma_head" is NaN 
+                for idx, row in df.iterrows():
+                    if row["casualty_id"] == casualty_id and np.isnan(row["trauma_head"]):
+                        df.loc[idx, "trauma_head"] = trauma_head_list[-1]
+                        df.loc[idx, "trauma_torso"] = trauma_torso_list[-1]
+                        df.loc[idx, "trauma_lower_ext"] = trauma_lower_ext_list[-1]
+                        df.loc[idx, "trauma_upper_ext"] = trauma_upper_ext_list[-1]
+                        df.loc[idx, "alertness_ocular"] = alert_oc_list[-1]
+                        df.loc[idx, "severe_hemorrhage"] = sev_hem_list[-1]
+                        break
+
+                    # if we got to the end of the loop without finding a row to update
+                    # we need to append a new row
+                    if idx == len(df) - 1:
+                        df = df._append(new_row)
+
+            df.to_csv(f, header=False, index=False)
+
         # save the ground prompts into the directory that contains the image
         for i, prompt in enumerate(ground_vlm_prompts):
-            with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}_round_number.txt"), "w") as f:
+            with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}_{round_number}.txt"), "w") as f:
                 f.write(prompt)
         rospy.loginfo(f"Successfully saved ground prompts.")
 
@@ -1016,7 +1056,21 @@ class VLMNode:
                     f.write(prompt)
             rospy.loginfo(f"Successfully saved air prompts.")
 
-
+            # append to the drone database
+            with portalocker.Lock(self.drone_database_path, "r+") as f:
+                df = pd.read_csv(f)
+                new_row = {
+                    "casualty_id": casualty_id,
+                    "trauma_head": trauma_head_list[-1],
+                    "trauma_torso": trauma_torso_list[-1],
+                    "trauma_lower_ext": trauma_lower_ext_list[-1],
+                    "trauma_upper_ext": trauma_upper_ext_list[-1],
+                    "alertness_ocular": alert_oc_list[-1],
+                    "severe_hemorrhage": sev_hem_list[-1],
+                }
+                df = df._append(pd.DataFrame(new_row))
+                df.to_csv(f, header=False, index=False)
+                
         ### CONTINUE TO WHISPER
         # load the seens whisper ids:
         with portalocker.Lock(self.seen_whisper_texts_path, "r") as f:
@@ -1059,6 +1113,30 @@ class VLMNode:
                         response_dict = self._predict_if_whisper_is_text(whisper)
                         text_list.append(int(response_dict["alertness_verbal"]))
                         rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
+                # append to the database
+                with portalocker.Lock(self.database_path, "r+") as f:
+                    df = pd.read_csv(f)
+                    # the casualty_id should already be in the database
+                    # if len(text_list) == 1, we must find the first row with NaN
+                    # and update it, if len(text_list) == 2, we must find both rows
+                    # and update them
+                    if len(text_list) == 1:
+                        for idx, row in df.iterrows():
+                            if row["casualty_id"] == casualty_id and np.isnan(row["alertness_verbal"]):
+                                df.loc[idx, "alertness_verbal"] = text_list[0]
+                                break
+                    elif len(text_list) == 2:
+                        set_first = False
+                        for idx, row in df.iterrows():
+                            if row["casualty_id"] == casualty_id and np.isnan(row["alertness_verbal"]):
+                                if not set_first:
+                                    df.loc[idx, "alertness_verbal"] = text_list[0]
+                                    set_first = True
+                                else:
+                                    df.loc[idx, "alertness_verbal"] = text_list[1]
+                                    break
+                    df.to_csv(f, header=False, index=False)
+                    
             else:
                 rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
 
