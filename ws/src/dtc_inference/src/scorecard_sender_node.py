@@ -602,7 +602,6 @@ class ScorecardSenderNode:
         )
 
         self.message_dict = {}
-        self.database_path = os.path.join(self.run_dir, "database.csv")
         self.scoring_client = ScoringClient(ip="http://172.17.0.1:8000")
 
     def _aggregate_results(self, results):

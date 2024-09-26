@@ -180,7 +180,7 @@ class WSReceiverNode:
             }
             # add vlm predictions to the append_dict
             df = df._append(append_dict, ignore_index=True)
-            df.to_csv(self.id_to_gps_path, index=False)
+            df.to_csv(self.id_to_gps_path, index=False, mode="w")
 
         cv2.imwrite(img_path, drone_img)
 
@@ -226,7 +226,7 @@ class WSReceiverNode:
                 cv2.imwrite(img_path, ground_img)
                 rospy.loginfo(f"Added new image to Dataframe and saved image at {img_path}.")
 
-            image_df.to_csv(self.image_data_path, index=False)
+            image_df.to_csv(self.image_data_path, index=False, mode="w")
         rospy.loginfo("Successfully wrote all images to files.")            
         
         msg = ReceivedImageData()
@@ -266,14 +266,14 @@ class WSReceiverNode:
                 "respiratory_rate": acc_respiration_rate,
             }
             database_df = database_df._append(append_dict, ignore_index=True)
-            database_df.to_csv(self.database_path, index=False)
+            database_df.to_csv(self.database_path, index=False, mode="w")
 
         # save the whisper text
-        with portalocker.Lock(self.seen_whisper_texts_path, timeout=1):
+        with portalocker.Lock(self.seen_whisper_texts_path, "r", timeout=1):
             seen_whisper_texts_df = pd.read_csv(self.seen_whisper_texts_path)
         
-        # check the smallest id for the whisper text
-        if len(seen_whisper_texts_df) > 0:
+        # check the smallest id for the whisper text for the casualty id
+        if len(seen_whisper_texts_df[seen_whisper_texts_df["casualty_id"] == casualty_id]) > 0:
             smallest_id = seen_whisper_texts_df["whisper_id"].min()
         else:
             smallest_id = 0

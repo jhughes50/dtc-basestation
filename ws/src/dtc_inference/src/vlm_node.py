@@ -360,17 +360,6 @@ class VLMNode:
         else:
             rospy.loginfo(f"File already exists at {self.seen_drone_images_path}. Continuing.")
 
-        # create a file to store the seen whisper texts
-        self.seen_whisper_texts_path = os.path.join(
-            self.run_dir, "seen_whisper_texts.csv"
-        )
-        if not os.path.exists(self.seen_whisper_texts_path):
-            _df = pd.DataFrame(columns=["whisper_id", "whisper_text"])
-            _df.to_csv(self.seen_whisper_texts_path, index=False)
-            rospy.loginfo(f"Created seen whisper texts file at {self.seen_whisper_texts_path}.")
-        else:
-            rospy.loginfo(f"File already exists at {self.seen_whisper_texts_path}. Continuing.")
-
         # create subscriber to drone and ground
         self.image_sub = rospy.Subscriber(
             "/received_images", ReceivedImageData, self.vlm_callback
@@ -975,7 +964,6 @@ class VLMNode:
             # check if we have already seen the casualty_id
             # if no, create a new entry
             if casualty_id not in df["casualty_id"].values:
-
                 df = df._append(pd.DataFrame(new_row))
             else: 
                 # in this case, we need to iterate over the rows
@@ -996,7 +984,7 @@ class VLMNode:
                     if idx == len(df) - 1:
                         df = df._append(new_row)
 
-            df.to_csv(f, header=False, index=False)
+            df.to_csv(f, index=False, mode="w")
 
         # save the ground prompts into the directory that contains the image
         for i, prompt in enumerate(ground_vlm_prompts):
@@ -1031,7 +1019,7 @@ class VLMNode:
                 with portalocker.Lock(self.seen_drone_images_path, "r+") as f:
                     df = pd.read_csv(f)
                     df = df._append({"casualty_id": casualty_id})
-                    df.to_csv(f, header=False, index=False)
+                    df.to_csv(f, index=False, mode="w")
 
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
                 rospy.loginfo(f"Successfully predicted drone labels.")
@@ -1069,12 +1057,13 @@ class VLMNode:
                     "severe_hemorrhage": sev_hem_list[-1],
                 }
                 df = df._append(pd.DataFrame(new_row))
-                df.to_csv(f, header=False, index=False)
+                df.to_csv(f, index=False, mode="w")
                 
         ### CONTINUE TO WHISPER
         # load the seens whisper ids:
         with portalocker.Lock(self.seen_whisper_texts_path, "r") as f:
             df = pd.read_csv(f)
+
         missing_whisper_ids = [idx for idx in range(2) if idx not in df[df["casualty_id"] == casualty_id]["whisper_id"].values]
         rospy.loginfo(f"Missing whisper ids for casualty_id {casualty_id}: {missing_whisper_ids}")
 
@@ -1096,10 +1085,10 @@ class VLMNode:
 
                     # add to the seen whisper texts
                     with portalocker.Lock(self.seen_whisper_texts_path, "r+") as f:
-                        append_dict = {"whisper_id": [idx], "whisper_text": [whisper]}
+                        append_dict = {"whisper_id": int(idx), "whisper_text": int(whisper)}
                         df = pd.read_csv(f)
-                        df = df._append(pd.DataFrame(append_dict))
-                        df.to_csv(f, header=False, index=False)
+                        df = df._append(append_dict)
+                        df.to_csv(f, index=False, mode="w")
                 else:
                     rospy.loginfo(f"Did not find whisper string for casualty_id {casualty_id} and whisper_id {idx}. Skipping whisper string.")
 
@@ -1113,6 +1102,7 @@ class VLMNode:
                         response_dict = self._predict_if_whisper_is_text(whisper)
                         text_list.append(int(response_dict["alertness_verbal"]))
                         rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
+                
                 # append to the database
                 with portalocker.Lock(self.database_path, "r+") as f:
                     df = pd.read_csv(f)
@@ -1135,8 +1125,9 @@ class VLMNode:
                                 else:
                                     df.loc[idx, "alertness_verbal"] = text_list[1]
                                     break
-                    df.to_csv(f, header=False, index=False)
-                    
+
+                    df.to_csv(f, index=False, mode="w")
+
             else:
                 rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
 
