@@ -119,7 +119,7 @@ class WSReceiverNode:
 
         # create subscriber to drone and ground
         self.drone_sub = rospy.Subscriber(
-            "/" + drone_name + "/drone_detection", TDDetection, self.drone_callback
+            "/dione/sync/aerial_detections", TDDetection, self.drone_callback
         )
         self.ground_sub = rospy.Subscriber(
             "/" + robot_name + "/ground_detection", GroundDetection, self.ground_detection_callback
