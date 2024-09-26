@@ -621,6 +621,9 @@ class ScorecardSenderNode:
                 int: The aggregated prediction.
             """
             # if the labels are numbers as strings, we need to convert them to integers
+            if len(x) == 0:
+                return 0
+            
             if isinstance(x[0], str):
                 x = [int(x) for x in x]
 
@@ -662,19 +665,17 @@ class ScorecardSenderNode:
             # first, check if the casualty id is in the database
             # if not, we add the casualty id with the values from the signal
             if casualty_id not in database["casualty_id"].values:
-                new_row = pd.DataFrame(
-                    {
-                        "casualty_id": [casualty_id],
-                        "trauma_head": [msg.trauma_head],
-                        "trauma_torso": [msg.trauma_torso],
-                        "trauma_lower_ext": [msg.trauma_lower_ext],
-                        "trauma_upper_ext": [msg.trauma_upper_ext],
-                        "alertness_ocular": [msg.alertness_ocular],
-                        "severe_hemorrhage": [msg.severe_hemorrhage],
-                        "alertness_motor": [msg.alertness_motor],
-                        "alertness_verbal": [msg.alertness_verbal],
-                    }
-                )
+                new_row = {
+                    "casualty_id": casualty_id,
+                    "trauma_head": msg.trauma_head,
+                    "trauma_torso": msg.trauma_torso,
+                    "trauma_lower_ext": msg.trauma_lower_ext,
+                    "trauma_upper_ext": msg.trauma_upper_ext,
+                    "alertness_ocular": msg.alertness_ocular,
+                    "severe_hemorrhage": msg.severe_hemorrhage,
+                    "alertness_motor": msg.alertness_motor,
+                    "alertness_verbal": msg.alertness_verbal
+                }
                 database = database._append(new_row, ignore_index=True)
             else:
                 # if the casualty id is in the database, there might be multiple entries for it
@@ -701,8 +702,7 @@ class ScorecardSenderNode:
 
                     # if we make it to the end and all entries are full, we add a new row
                     if idx == len(database) - 1:
-                        new_row = pd.DataFrame(
-                            {
+                        new_row = {
                                 "casualty_id": [casualty_id],
                                 "trauma_head": [msg.trauma_head],
                                 "trauma_torso": [msg.trauma_torso],
@@ -713,7 +713,6 @@ class ScorecardSenderNode:
                                 "alertness_motor": [msg.alertness_motor],
                                 "alertness_verbal": [msg.alertness_verbal],
                             }
-                        )
                         database = database._append(new_row, ignore_index=True)
 
             # now save the new database
