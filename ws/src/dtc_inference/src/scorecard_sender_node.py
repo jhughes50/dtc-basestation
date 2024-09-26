@@ -598,7 +598,7 @@ class ScorecardSenderNode:
             "/image_analysis_results", ImageAnalysisResult, self.image_callback
         ) # TODO: fix this
         self.receiver_sub = rospy.Subscriber(
-            "/received_signal", ReceivedSignal, self.signal_callback
+            "/received_signals", ReceivedSignal, self.signal_callback
         )
 
         self.ground_database_path = os.path.join(self.run_dir, "ground_data.csv")
@@ -749,7 +749,7 @@ class ScorecardSenderNode:
 
             rospy.loginfo(f"Attempting to send signal to scorecard. \n " + \
                             f"Scorecard: {scorecard_frame}")
-            self.sc_client.send_partial_scorecard("test", casualty_id, scorecard_frame)
+            self.scoring_client.send_partial_scorecard("test", casualty_id, scorecard_frame)
             rospy.loginfo("Successfully sent signal to scorecard.")
         else:
             return False
