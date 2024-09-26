@@ -952,6 +952,7 @@ class VLMNode:
 
         # append to database
         with portalocker.Lock(self.database_path, "r+") as f:
+            rospy.loginfo(f"Loading database.")
             df = pd.read_csv(f)
             new_row = {
                 "casualty_id": casualty_id,
@@ -965,14 +966,17 @@ class VLMNode:
             # check if we have already seen the casualty_id
             # if no, create a new entry
             if casualty_id not in df["casualty_id"].values:
+                rospy.loginfo(f"Did not find casualty_id {casualty_id} in database. Appending new row.")
                 df = df._append(new_row)
             else: 
+                rospy.loginfo(f"Found casualty_id {casualty_id} in database. Updating row.")
                 # in this case, we need to iterate over the rows
                 # and update the first row that has the casualty_id
                 # and "trauma_head" is NaN 
                 found_one = False
                 for idx, row in df.iterrows():
                     if row["casualty_id"] == casualty_id and np.isnan(row["trauma_head"]):
+                        rospy.loginfo(f"Found row to update at index {idx}.")
                         df.loc[idx, "trauma_head"] = trauma_head_list[-1]
                         df.loc[idx, "trauma_torso"] = trauma_torso_list[-1]
                         df.loc[idx, "trauma_lower_ext"] = trauma_lower_ext_list[-1]
@@ -985,6 +989,7 @@ class VLMNode:
                     # if we got to the end of the loop without finding a row to update
                     # we need to append a new row
                     if idx == len(df) - 1 and not found_one:
+                        rospy.loginfo(f"Did not find row to update while iterating. Appending new row.")
                         df = df._append(new_row)
 
             df.to_csv(f, index=False, mode="w")
