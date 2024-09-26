@@ -81,7 +81,7 @@ class WSReceiverNode:
             _df = pd.DataFrame(
                 columns=[
                     "casualty_id",
-                    *LABEL_CLASSES,
+                    *LABEL_CLASSES[:-1],
                 ]
             )
             _df.to_csv(self.ground_database_path, index=False)
@@ -273,17 +273,6 @@ class WSReceiverNode:
         acc_respiration_rate = msg.acconeer_respiration_rate.data
         neural_heart_rate = msg.neural_heart_rate.data
         rospy.loginfo("Successfully parsed msg.")
-
-        # save the data into the database
-        with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
-            database_df = pd.read_csv(self.signal_database_path)
-            append_dict = {
-                "casualty_id": casualty_id,
-                "heart_rate": neural_heart_rate,
-                "respiratory_rate": acc_respiration_rate,
-            }
-            database_df = database_df._append(append_dict, ignore_index=True)
-            database_df.to_csv(self.signal_database_path, index=False, mode="w")
 
         # save the whisper text
         with portalocker.Lock(self.whisper_database_path, "r", timeout=1):

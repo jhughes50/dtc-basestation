@@ -965,6 +965,18 @@ class VLMNode:
         sev_hem_list = [int(ground_vlm_pred["severe_hemorrhage"])]
         rospy.loginfo(f"Successfully parsed ground labels.")
 
+        # save the ground prompts into the directory that contains the image
+        for i, prompt in enumerate(ground_vlm_prompts):
+            with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}_{round_number}.txt"), "w") as f:
+                f.write(prompt)
+        rospy.loginfo(f"Successfully saved ground prompts.")
+
+        ### VIDEO PREDICTION WITH GROUND
+        video_img_list = [Image.open(image_path_list[i]) for i in range(len(image_path_list))]
+        motion_response_dict = self._predict_motion_from_video(video_img_list)
+        motion_list = [int(motion_response_dict["alertness_motor"])]
+
+
         # append to database
         with portalocker.Lock(self.ground_database_path, "r+") as f:
             rospy.loginfo(f"Loading database.")
@@ -980,45 +992,9 @@ class VLMNode:
             }
             # check if we have already seen the casualty_id
             # if no, create a new entry
-            if casualty_id not in df["casualty_id"].values:
-                rospy.loginfo(f"Did not find casualty_id {casualty_id} in database. Appending new row.")
-                df = df._append(new_row, ignore_index=True)
-            else: 
-                rospy.loginfo(f"Found casualty_id {casualty_id} in database. Updating row.")
-                # in this case, we need to iterate over the rows
-                # and update the first row that has the casualty_id
-                # and "trauma_head" is NaN 
-                found_one = False
-                for idx, row in df.iterrows():
-                    if row["casualty_id"] == casualty_id and np.isnan(row["trauma_head"]):
-                        rospy.loginfo(f"Found row to update at index {idx}.")
-                        df.loc[idx, "trauma_head"] = trauma_head_list[-1]
-                        df.loc[idx, "trauma_torso"] = trauma_torso_list[-1]
-                        df.loc[idx, "trauma_lower_ext"] = trauma_lower_ext_list[-1]
-                        df.loc[idx, "trauma_upper_ext"] = trauma_upper_ext_list[-1]
-                        df.loc[idx, "alertness_ocular"] = alert_oc_list[-1]
-                        df.loc[idx, "severe_hemorrhage"] = sev_hem_list[-1]
-                        found_one = True
-                        break
-
-                    # if we got to the end of the loop without finding a row to update
-                    # we need to append a new row
-                    if idx == len(df) - 1 and not found_one:
-                        rospy.loginfo(f"Did not find row to update while iterating. Appending new row.")
-                        df = df._append(new_row, ignore_index=True)
-
+            rospy.loginfo(f"Appending new row to ground database.")
+            df = df._append(new_row, ignore_index=True)
             df.to_csv(f, index=False, mode="w", header=False)
-
-        # save the ground prompts into the directory that contains the image
-        for i, prompt in enumerate(ground_vlm_prompts):
-            with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}_{round_number}.txt"), "w") as f:
-                f.write(prompt)
-        rospy.loginfo(f"Successfully saved ground prompts.")
-
-        ### VIDEO PREDICTION WITH GROUND
-        video_img_list = [Image.open(image_path_list[i]) for i in range(len(image_path_list))]
-        motion_response_dict = self._predict_motion_from_video(video_img_list)
-        motion_list = [int(motion_response_dict["alertness_motor"])]
 
         ### CONTINUE TO DRONE
         # check if we have already seen the drone image for this casualty_id

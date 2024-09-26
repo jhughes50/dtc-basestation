@@ -601,6 +601,11 @@ class ScorecardSenderNode:
             "/received_signal", ReceivedSignal, self.signal_callback
         )
 
+        self.ground_database_path = os.path.join(self.run_dir, "ground_data.csv")
+        self.drone_database_path = os.path.join(self.run_dir, "drone_data.csv")
+        self.whisper_database_path = os.path.join(self.run_dir, "whisper_data.csv")
+        self.signal_database_path = os.path.join(self.run_dir, "signal_data.csv")
+
         self.message_dict = {}
         self.scoring_client = ScoringClient(ip="http://172.17.0.1:8000")
 
@@ -711,20 +716,43 @@ class ScorecardSenderNode:
 
 
     def signal_callback(self, msg):
+        rospy.loginfo(f"Received signal call")
         casualty_id = msg.casualty_id
         heart_rate = msg.heart_rate
         respiratory_rate = msg.respiratory_rate
-                    
-        scorecard_frame = pd.DataFrame(columns=["type", "value"])
-        scorecard_frame = scorecard_frame._append(
-            {"type": "heart_rate", "value": heart_rate}, ignore_index=True
-        )
-        scorecard_frame = scorecard_frame._append(
-            {"type": "respiratory_rate", "value": respiratory_rate}, ignore_index=True
-        )
 
-        self.sc_client.send_partial_scorecard("test", casualty_id, scorecard_frame)
-        rospy.loginfo("Successfully sent signal to scorecard.")
+        # save the data into the database
+        with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
+            signal_database_df = pd.read_csv(self.signal_database_path)
+            append_dict = {
+                "casualty_id": casualty_id,
+                "heart_rate": heart_rate,
+                "respiratory_rate": respiratory_rate,
+            }
+            signal_database_df = signal_database_df._append(append_dict, ignore_index=True)
+            signal_database_df.to_csv(self.signal_database_path, index=False, mode="w")
+                    
+        # if casualty id in signal_database_df has two entries
+        # send a majority vote to the scorecard
+        signal_values = signal_database_df[signal_database_df["casualty_id"] == casualty_id]
+        if len(signal_values) == 2:
+            heart_rate_to_send = signal_values["heart_rate"].mode()[0]
+            respiratory_rate_to_send = signal_values["respiratory_rate"].mode()[0]
+
+            scorecard_frame = pd.DataFrame(columns=["type", "value"])
+            scorecard_frame = scorecard_frame._append(
+                {"type": "heart_rate", "value": heart_rate_to_send}, ignore_index=True
+            )
+            scorecard_frame = scorecard_frame._append(
+                {"type": "respiratory_rate", "value": respiratory_rate_to_send}, ignore_index=True
+            )
+
+            rospy.loginfo(f"Attempting to send signal to scorecard. \n " + \
+                            f"Scorecard: {scorecard_frame}")
+            self.sc_client.send_partial_scorecard("test", casualty_id, scorecard_frame)
+            rospy.loginfo("Successfully sent signal to scorecard.")
+        else:
+            return False
 
 
 def main():
