@@ -992,7 +992,7 @@ class VLMNode:
                         rospy.loginfo(f"Did not find row to update while iterating. Appending new row.")
                         df = df._append(new_row)
 
-            df.to_csv(f, index=False, mode="w")
+            df.to_csv(f, index=False, mode="w", header=False)
 
         # save the ground prompts into the directory that contains the image
         for i, prompt in enumerate(ground_vlm_prompts):
@@ -1027,7 +1027,7 @@ class VLMNode:
                 with portalocker.Lock(self.seen_drone_images_path, "r+") as f:
                     df = pd.read_csv(f)
                     df = df._append({"casualty_id": casualty_id})
-                    df.to_csv(f, index=False, mode="w")
+                    df.to_csv(f, index=False, mode="w", header=False)
 
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
                 rospy.loginfo(f"Successfully predicted drone labels.")
@@ -1065,7 +1065,7 @@ class VLMNode:
                     "severe_hemorrhage": sev_hem_list[-1],
                 }
                 df = df._append(pd.DataFrame(new_row))
-                df.to_csv(f, index=False, mode="w")
+                df.to_csv(f, index=False, mode="w", header=False)
                 
         ### CONTINUE TO WHISPER
         # load the seens whisper ids:
@@ -1093,10 +1093,10 @@ class VLMNode:
 
                     # add to the seen whisper texts
                     with portalocker.Lock(self.seen_whisper_texts_path, "r+") as f:
-                        append_dict = {"whisper_id": int(idx), "whisper_text": int(whisper)}
+                        append_dict = {"whisper_id": int(idx), "whisper_text": whisper}
                         df = pd.read_csv(f)
                         df = df._append(append_dict)
-                        df.to_csv(f, index=False, mode="w")
+                        df.to_csv(f, index=False, mode="w", header=False)
                 else:
                     rospy.loginfo(f"Did not find whisper string for casualty_id {casualty_id} and whisper_id {idx}. Skipping whisper string.")
 
@@ -1134,7 +1134,7 @@ class VLMNode:
                                     df.loc[idx, "alertness_verbal"] = text_list[1]
                                     break
 
-                    df.to_csv(f, index=False, mode="w")
+                    df.to_csv(f, index=False, mode="w", header=False)
 
             else:
                 rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
