@@ -35,7 +35,7 @@ LABEL_CLASSES = [
     "trauma_upper_ext",
     "alertness_ocular",
     "severe_hemorrhage",
-    "alertness_motion",
+    "alertness_motor",
     "alertness_verbal",
 ]
 
@@ -76,33 +76,46 @@ class WSReceiverNode:
         else:
             rospy.loginfo(f"File already exists at {self.id_to_gps_path}. Continuing.")
 
-        self.database_path = os.path.join(self.run_dir, "database.csv")
-        if not os.path.exists(self.database_path):
+        self.ground_database_path = os.path.join(self.run_dir, "ground_data.csv")
+        if not os.path.exists(self.ground_database_path):
             _df = pd.DataFrame(
                 columns=[
                     "casualty_id",
-                    "heart_rate",
-                    "respiratory_rate",
                     *LABEL_CLASSES,
                 ]
             )
-            _df.to_csv(self.database_path, index=False)
-            rospy.loginfo(f"Created file at {self.database_path}.")
+            _df.to_csv(self.ground_database_path, index=False)
+            rospy.loginfo(f"Created file at {self.ground_database_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.database_path}. Continuing.")
+            rospy.loginfo(f"File already exists at {self.ground_database_path}. Continuing.")
 
         self.drone_database_path = os.path.join(self.run_dir, "drone_data.csv")
         if not os.path.exists(self.drone_database_path):
             _df = pd.DataFrame(
                 columns=[
                     "casualty_id",
-                    *LABEL_CLASSES,
+                    # all label classes except for alertness_motor and alertness_verbal
+                    *LABEL_CLASSES[:-2],
                 ]
             )
             _df.to_csv(self.drone_database_path, index=False)
             rospy.loginfo(f"Created file at {self.drone_database_path}.")
         else:
             rospy.loginfo(f"File already exists at {self.drone_database_path}. Continuing.")
+
+        self.signal_database_path = os.path.join(self.run_dir, "signal_data.csv")
+        if not os.path.exists(self.signal_database_path):
+            _df = pd.DataFrame(
+                columns=[
+                    "casualty_id",
+                    "heart_rate",
+                    "respiratory_rate",
+                ]
+            )
+            _df.to_csv(self.signal_database_path, index=False)
+            rospy.loginfo(f"Created file at {self.signal_database_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.signal_database_path}. Continuing.")
 
         self.image_data_path = os.path.join(self.run_dir, "image_data.csv")
         if not os.path.exists(self.image_data_path):

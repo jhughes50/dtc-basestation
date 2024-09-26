@@ -361,7 +361,7 @@ class VLMNode:
         rospy.loginfo(f"Set up device {self.device}.")
 
         self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
-        self.database_path = os.path.join(self.run_dir, "database.csv")
+        self.ground_database_path = os.path.join(self.run_dir, "ground_data.csv")
         self.drone_database_path = os.path.join(self.run_dir, "drone_data.csv")
         self.seen_whisper_texts_path = os.path.join(self.run_dir, "seen_whisper_texts.csv")
 
@@ -966,7 +966,7 @@ class VLMNode:
         rospy.loginfo(f"Successfully parsed ground labels.")
 
         # append to database
-        with portalocker.Lock(self.database_path, "r+") as f:
+        with portalocker.Lock(self.ground_database_path, "r+") as f:
             rospy.loginfo(f"Loading database.")
             df = pd.read_csv(f)
             new_row = {
@@ -1127,7 +1127,7 @@ class VLMNode:
                         rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
                 
                 # append to the database
-                with portalocker.Lock(self.database_path, "r+") as f:
+                with portalocker.Lock(self.ground_database_path, "r+") as f:
                     df = pd.read_csv(f)
                     # the casualty_id should already be in the database
                     # if len(text_list) == 1, we must find the first row with NaN
