@@ -57,14 +57,14 @@ class WSReceiverNode:
 
         # create a file to store the seen whisper texts
 
-        self.seen_whisper_texts_path = os.path.join(self.run_dir, "seen_whisper_texts.csv")
+        self.whisper_database_path = os.path.join(self.run_dir, "whisper_data.csv")
         # if files do not exist, create it
-        if not os.path.exists(self.seen_whisper_texts_path):
-            _df = pd.DataFrame(columns=["casualty_id", "whisper_id"])
-            _df.to_csv(self.seen_whisper_texts_path, index=False)
-            rospy.loginfo(f"Created file at {self.seen_whisper_texts_path}.")
+        if not os.path.exists(self.whisper_database_path):
+            _df = pd.DataFrame(columns=["casualty_id", "whisper_id", "whisper_pred"])
+            _df.to_csv(self.whisper_database_path, index=False)
+            rospy.loginfo(f"Created file at {self.whisper_database_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.seen_whisper_texts_path}. Continuing.")
+            rospy.loginfo(f"File already exists at {self.whisper_database_path}. Continuing.")
 
         self.id_to_gps_path = os.path.join(self.run_dir, "id_to_gps.csv")
         if not os.path.exists(self.id_to_gps_path):
@@ -286,8 +286,8 @@ class WSReceiverNode:
             database_df.to_csv(self.signal_database_path, index=False, mode="w")
 
         # save the whisper text
-        with portalocker.Lock(self.seen_whisper_texts_path, "r", timeout=1):
-            seen_whisper_texts_df = pd.read_csv(self.seen_whisper_texts_path)
+        with portalocker.Lock(self.whisper_database_path, "r", timeout=1):
+            seen_whisper_texts_df = pd.read_csv(self.whisper_database_path)
         
         # check the smallest id for the whisper text for the casualty id
         if len(seen_whisper_texts_df[seen_whisper_texts_df["casualty_id"] == casualty_id]) > 0:

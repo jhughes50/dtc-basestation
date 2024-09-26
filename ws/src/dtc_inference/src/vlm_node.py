@@ -363,7 +363,7 @@ class VLMNode:
         self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
         self.ground_database_path = os.path.join(self.run_dir, "ground_data.csv")
         self.drone_database_path = os.path.join(self.run_dir, "drone_data.csv")
-        self.seen_whisper_texts_path = os.path.join(self.run_dir, "seen_whisper_texts.csv")
+        self.whisper_database_path = os.path.join(self.run_dir, "whisper_data.csv")
 
         # create a file to store the ids with seen drone images
         self.seen_drone_images_path = os.path.join(
@@ -1084,7 +1084,7 @@ class VLMNode:
                 
         ### CONTINUE TO WHISPER
         # load the seens whisper ids:
-        with portalocker.Lock(self.seen_whisper_texts_path, "r") as f:
+        with portalocker.Lock(self.whisper_database_path, "r") as f:
             df = pd.read_csv(f)
 
         missing_whisper_ids = [idx for idx in range(2) if idx not in df[df["casualty_id"] == casualty_id]["whisper_id"].values]
@@ -1105,13 +1105,6 @@ class VLMNode:
                             whisper = f.read()
                     rospy.loginfo(f"Found whisper string for casualty_id {casualty_id} and whisper_id {idx}.")
                     whispers_to_check[idx] = whisper
-
-                    # add to the seen whisper texts
-                    with portalocker.Lock(self.seen_whisper_texts_path, "r+") as f:
-                        append_dict = {"casualty_id": casualty_id, "whisper_id": idx}
-                        df = pd.read_csv(f)
-                        df = df._append(append_dict, ignore_index=True)
-                        df.to_csv(f, index=False, mode="w", header=False)
                 else:
                     rospy.loginfo(f"Did not find whisper string for casualty_id {casualty_id} and whisper_id {idx}. Skipping whisper string.")
 
@@ -1125,32 +1118,13 @@ class VLMNode:
                         response_dict = self._predict_if_whisper_is_text(whisper)
                         text_list.append(int(response_dict["alertness_verbal"]))
                         rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
-                
-                # append to the database
-                with portalocker.Lock(self.ground_database_path, "r+") as f:
-                    df = pd.read_csv(f)
-                    # the casualty_id should already be in the database
-                    # if len(text_list) == 1, we must find the first row with NaN
-                    # and update it, if len(text_list) == 2, we must find both rows
-                    # and update them
-                    if len(text_list) == 1:
-                        for idx, row in df.iterrows():
-                            if row["casualty_id"] == casualty_id and np.isnan(row["alertness_verbal"]):
-                                df.loc[idx, "alertness_verbal"] = text_list[0]
-                                break
-                    elif len(text_list) == 2:
-                        set_first = False
-                        for idx, row in df.iterrows():
-                            if row["casualty_id"] == casualty_id and np.isnan(row["alertness_verbal"]):
-                                if not set_first:
-                                    df.loc[idx, "alertness_verbal"] = text_list[0]
-                                    set_first = True
-                                else:
-                                    df.loc[idx, "alertness_verbal"] = text_list[1]
-                                    break
 
-                    df.to_csv(f, index=False, mode="w", header=False)
-
+                    # add to the seen whisper texts
+                    with portalocker.Lock(self.whisper_database_path, "r+") as f:
+                        append_dict = {"casualty_id": casualty_id, "whisper_id": idx, "whisper_pred": int(text_list[-1])}
+                        df = pd.read_csv(f)
+                        df = df._append(append_dict, ignore_index=True)
+                        df.to_csv(f, index=False, mode="w", header=False)
             else:
                 rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
 
