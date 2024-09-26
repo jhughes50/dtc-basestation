@@ -1079,7 +1079,7 @@ class VLMNode:
                     "alertness_ocular": alert_oc_list[-1],
                     "severe_hemorrhage": sev_hem_list[-1],
                 }
-                df = df._append(pd.DataFrame(new_row), ignore_index=True)
+                df = df._append(new_row, ignore_index=True)
                 df.to_csv(f, index=False, mode="w", header=False)
                 
         ### CONTINUE TO WHISPER
