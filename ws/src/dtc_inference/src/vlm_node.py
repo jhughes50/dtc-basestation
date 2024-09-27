@@ -593,9 +593,6 @@ class VLMNode:
         )
 
         # get the response from the model
-        streamer = self.streamer(
-            self.tokenizer, skip_prompt=False, skip_special_tokens=True
-        )
         with torch.inference_mode():
             tokenized_response = self.model.generate(
                 tokenized_prompt,
@@ -646,9 +643,6 @@ class VLMNode:
 
             num_steps_in_user_fn += 1
             # get the response from the model
-            streamer = self.streamer(
-                self.tokenizer, skip_prompt=False, skip_special_tokens=True
-            )
             with torch.inference_mode():
                 tokenized_response = self.model.generate(
                     tokenized_prompt,
@@ -677,9 +671,6 @@ class VLMNode:
         )
 
         # get the response from the model
-        streamer = self.streamer(
-            self.tokenizer, skip_prompt=False, skip_special_tokens=True
-        )
         with torch.inference_mode():
             tokenized_response = self.model.generate(
                 tokenized_prompt,
@@ -715,9 +706,6 @@ class VLMNode:
                         prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
                     ).unsqueeze(0)
                     .to(self.device)
-                )
-                streamer = self.streamer(
-                    self.tokenizer, skip_prompt=False, skip_special_tokens=True
                 )
                 # get the response from the model
                 with torch.inference_mode():
@@ -844,10 +832,6 @@ class VLMNode:
             )
 
             # get the response from the model
-            streamer = self.streamer(
-                self.tokenizer, skip_prompt=False, skip_special_tokens=True
-            )
-
             # resize to make sure we don't run out of memory
             images = [img.resize((256, 256)) for img in images]
             image_sizes = [img.size for img in images]
@@ -905,9 +889,6 @@ class VLMNode:
             )
 
             # get the response from the model
-            streamer = self.streamer(
-                self.tokenizer, skip_prompt=False, skip_special_tokens=True
-            )
             with torch.inference_mode():
                 tokenized_response = self.model.generate(
                     tokenized_prompt,
@@ -955,6 +936,9 @@ class VLMNode:
 
         num_images = len(image_path_list)
         rospy.loginfo(f"Received {num_images} image paths in VLM, starting prediction.")
+
+        for image_path in image_path_list:
+            self.streamer.send_image(Image.open(image_path))
 
         ### START WITH GROUND
         # Run the VLM for the ground image
