@@ -802,10 +802,10 @@ class ScorecardSenderNode:
 
             scorecard_frame = pd.DataFrame(columns=["type", "value"])
             scorecard_frame = scorecard_frame._append(
-                {"type": "heart_rate", "value": heart_rate_to_send}, ignore_index=True
+                {"type": "hr", "value": heart_rate_to_send}, ignore_index=True
             )
             scorecard_frame = scorecard_frame._append(
-                {"type": "respiratory_rate", "value": respiratory_rate_to_send}, ignore_index=True
+                {"type": "rr", "value": respiratory_rate_to_send}, ignore_index=True
             )
 
             rospy.loginfo(f"Attempting to send signal to scorecard. \n " + \
