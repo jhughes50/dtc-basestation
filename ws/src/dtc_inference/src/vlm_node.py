@@ -14,7 +14,7 @@ import getpass
 import glob
 
 import rospy
-from dtc_inference.src.http_streamer import HttpStreamer
+from http_streamer import HttpStreamer
 from dtc_inference.msg import ReceivedImageData, ImageAnalysisResult
 from std_msgs.msg import String 
 
