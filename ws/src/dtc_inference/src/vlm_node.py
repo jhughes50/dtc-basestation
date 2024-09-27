@@ -601,7 +601,7 @@ class VLMNode:
                 do_sample=True if self.temperature > 0 else False,
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
-                streamer=streamer,
+                streamer=self.streamer,
                 use_cache=False,
                 # stopping_criteria=[stopping_criteria],
             )
@@ -651,7 +651,7 @@ class VLMNode:
                     do_sample=True if self.temperature > 0 else False,
                     temperature=self.temperature,
                     max_new_tokens=self.max_new_tokens,
-                    streamer=streamer,
+                    streamer=self.streamer,
                     use_cache=False,
                     # stopping_criteria=[stopping_criteria],
                 )
@@ -679,7 +679,7 @@ class VLMNode:
                 do_sample=True if self.temperature > 0 else False,
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
-                streamer=streamer,
+                streamer=self.streamer,
                 use_cache=False,
             )
 
@@ -716,7 +716,7 @@ class VLMNode:
                         do_sample=True if self.temperature > 0 else False,
                         temperature=self.temperature,
                         max_new_tokens=self.max_new_tokens,
-                        streamer=streamer,
+                        streamer=self.streamer,
                         use_cache=False,
                     )
                     string_response = self.tokenizer.decode(
@@ -849,7 +849,7 @@ class VLMNode:
                     do_sample=True if self.temperature > 0 else False,
                     temperature=self.temperature,
                     max_new_tokens=self.max_new_tokens,
-                    streamer=streamer,
+                    streamer=self.streamer,
                     use_cache=False,
                     # stopping_criteria=[stopping_criteria],
                 )
@@ -897,7 +897,7 @@ class VLMNode:
                     do_sample=True if self.temperature > 0 else False,
                     temperature=self.temperature,
                     max_new_tokens=self.max_new_tokens,
-                    streamer=streamer,
+                    streamer=self.streamer,
                     use_cache=False,
                     # stopping_criteria=[stopping_criteria],
                 )
