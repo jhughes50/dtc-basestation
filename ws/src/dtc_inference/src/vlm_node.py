@@ -14,11 +14,9 @@ import getpass
 import glob
 
 import rospy
+from dtc_inference.src.http_streamer import HttpStreamer
 from dtc_inference.msg import ReceivedImageData, ImageAnalysisResult
 from std_msgs.msg import String 
-from cv_bridge import CvBridge
-
-from transformers import TextStreamer
 
 import os
 
@@ -398,6 +396,14 @@ class VLMNode:
         )
         rospy.loginfo(f"Successfully loaded model {self.model_name}.")
 
+        # create the http streamer
+        self.streamer = HttpStreamer(
+            server_url="http://localhost:8080",
+            tokenizer=self.tokenizer,
+            skip_prompt=False,
+            skip_special_tokens=True
+        )
+
         # parameters for VLM prediction
         self.temperature = 0.5
         self.max_new_tokens = 512
@@ -587,7 +593,7 @@ class VLMNode:
         )
 
         # get the response from the model
-        streamer = TextStreamer(
+        streamer = self.streamer(
             self.tokenizer, skip_prompt=False, skip_special_tokens=True
         )
         with torch.inference_mode():
@@ -640,7 +646,7 @@ class VLMNode:
 
             num_steps_in_user_fn += 1
             # get the response from the model
-            streamer = TextStreamer(
+            streamer = self.streamer(
                 self.tokenizer, skip_prompt=False, skip_special_tokens=True
             )
             with torch.inference_mode():
@@ -671,7 +677,7 @@ class VLMNode:
         )
 
         # get the response from the model
-        streamer = TextStreamer(
+        streamer = self.streamer(
             self.tokenizer, skip_prompt=False, skip_special_tokens=True
         )
         with torch.inference_mode():
@@ -710,7 +716,7 @@ class VLMNode:
                     ).unsqueeze(0)
                     .to(self.device)
                 )
-                streamer = TextStreamer(
+                streamer = self.streamer(
                     self.tokenizer, skip_prompt=False, skip_special_tokens=True
                 )
                 # get the response from the model
@@ -838,7 +844,7 @@ class VLMNode:
             )
 
             # get the response from the model
-            streamer = TextStreamer(
+            streamer = self.streamer(
                 self.tokenizer, skip_prompt=False, skip_special_tokens=True
             )
 
@@ -899,7 +905,7 @@ class VLMNode:
             )
 
             # get the response from the model
-            streamer = TextStreamer(
+            streamer = self.streamer(
                 self.tokenizer, skip_prompt=False, skip_special_tokens=True
             )
             with torch.inference_mode():

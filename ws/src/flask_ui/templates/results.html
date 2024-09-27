@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Results</title>
+    <style>
+        #results {
+            max-height: 80vh; /* Adjust the height as needed */
+            overflow-y: auto;  /* Enable vertical scrolling */
+            border: 1px solid #ccc; /* Optional: Add a border */
+            padding: 10px; /* Optional: Add some padding */
+        }
+    </style>
+</head>
+<body>
+    <h1>Streaming Results</h1>
+    <div id="results"></div>
+
+    <script>
+        // Establish a connection to the SSE stream
+        const eventSource = new EventSource("/stream");
+
+        // Update the results div as new data is received
+        eventSource.onmessage = function(event) {
+            const resultsDiv = document.getElementById("results");
+            const [type, content] = event.data.split(":", 2);
+
+            if (type === "text") {
+                // Append the received text without adding a new line
+                resultsDiv.innerHTML += content;
+            } else if (type === "image") {
+                // Create an image element and append it to the results div
+                const img = document.createElement("img");
+                img.src = "data:image/png;base64," + content;
+                img.style.maxWidth = "300px";  // Adjust the size as needed
+                img.style.display = "block";   // Display images on their own lines
+                resultsDiv.appendChild(img);
+            }
+
+        // Scroll to the bottom of the results div
+        resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        };
+    </script>
+</body>
+</html>
