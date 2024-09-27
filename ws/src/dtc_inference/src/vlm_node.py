@@ -807,6 +807,7 @@ class VLMNode:
         return predictions, all_prompts
 
     def _predict_motion_from_video(self, images):
+        rospy.loginfo("Predicting motion from video.")
         failed_to_parse = True
 
         num_tries = 0
@@ -863,6 +864,10 @@ class VLMNode:
                     rospy.loginfo(f"Successfully parsed the response after {i} tries.")
                     failed_to_parse = False
                     break
+                rospy.loginfo(
+                    f"Failed to parse the response after {i} tries. Trying again."
+                )
+                rospy.loginfo(f"Response: {string_response}")
 
             num_tries += 1
 
@@ -877,6 +882,7 @@ class VLMNode:
 
 
     def _predict_if_whisper_is_text(self, whisper):
+        rospy.loginfo("Predicting if whisper is text.")
         failed_to_parse = True
         num_tries = 0
 
@@ -921,6 +927,10 @@ class VLMNode:
                     rospy.loginfo(f"Successfully parsed the response after {i} tries.")
                     failed_to_parse = False
                     break
+                rospy.loginfo(
+                    f"Failed to parse the response after {i} tries. Trying again."
+                )
+                rospy.loginfo(f"Response: {string_response}")
             
             num_tries += 1
 
