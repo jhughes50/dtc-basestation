@@ -976,26 +976,6 @@ class VLMNode:
         motion_response_dict = self._predict_motion_from_video(video_img_list)
         motion_list = [int(motion_response_dict["alertness_motor"])]
 
-
-        # append to database
-        with portalocker.Lock(self.ground_database_path, "r+") as f:
-            rospy.loginfo(f"Loading database.")
-            df = pd.read_csv(f)
-            new_row = {
-                "casualty_id": casualty_id,
-                "trauma_head": trauma_head_list[-1],
-                "trauma_torso": trauma_torso_list[-1],
-                "trauma_lower_ext": trauma_lower_ext_list[-1],
-                "trauma_upper_ext": trauma_upper_ext_list[-1],
-                "alertness_ocular": alert_oc_list[-1],
-                "severe_hemorrhage": sev_hem_list[-1],
-            }
-            # check if we have already seen the casualty_id
-            # if no, create a new entry
-            rospy.loginfo(f"Appending new row to ground database.")
-            df = df._append(new_row, ignore_index=True)
-            df.to_csv(f, index=False, mode="w", header=False)
-
         ### CONTINUE TO DRONE
         # check if we have already seen the drone image for this casualty_id
         with portalocker.Lock(self.seen_drone_images_path, "r") as f:
@@ -1013,12 +993,6 @@ class VLMNode:
             if len(all_drone_images_paths) == 1:
                 drone_img_list = [Image.open(all_drone_images_paths[0])]
                 rospy.loginfo(f"Found drone image for casualty_id {casualty_id}.")
-                
-                # add to the seen drone images
-                with portalocker.Lock(self.seen_drone_images_path, "r+") as f:
-                    df = pd.read_csv(f)
-                    df = df._append({"casualty_id": casualty_id}, ignore_index=True)
-                    df.to_csv(f, index=False, mode="w", header=False)
 
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
                 rospy.loginfo(f"Successfully predicted drone labels.")
@@ -1042,21 +1016,6 @@ class VLMNode:
                 with open(os.path.join(os.path.dirname(all_drone_images_paths[-1]), f"drone_prompt_{i}.txt"), "w") as f:
                     f.write(prompt)
             rospy.loginfo(f"Successfully saved air prompts.")
-
-            # append to the drone database
-            with portalocker.Lock(self.drone_database_path, "r+") as f:
-                df = pd.read_csv(f)
-                new_row = {
-                    "casualty_id": casualty_id,
-                    "trauma_head": trauma_head_list[-1],
-                    "trauma_torso": trauma_torso_list[-1],
-                    "trauma_lower_ext": trauma_lower_ext_list[-1],
-                    "trauma_upper_ext": trauma_upper_ext_list[-1],
-                    "alertness_ocular": alert_oc_list[-1],
-                    "severe_hemorrhage": sev_hem_list[-1],
-                }
-                df = df._append(new_row, ignore_index=True)
-                df.to_csv(f, index=False, mode="w", header=False)
                 
         ### CONTINUE TO WHISPER
         # load the seens whisper ids:
@@ -1094,13 +1053,6 @@ class VLMNode:
                         response_dict = self._predict_if_whisper_is_text(whisper)
                         text_list.append(int(response_dict["alertness_verbal"]))
                         rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
-
-                    # add to the seen whisper texts
-                    with portalocker.Lock(self.whisper_database_path, "r+") as f:
-                        append_dict = {"casualty_id": casualty_id, "whisper_id": idx, "whisper_pred": int(text_list[-1])}
-                        df = pd.read_csv(f)
-                        df = df._append(append_dict, ignore_index=True)
-                        df.to_csv(f, index=False, mode="w", header=False)
             else:
                 rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
 

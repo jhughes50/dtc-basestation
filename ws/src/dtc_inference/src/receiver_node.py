@@ -60,7 +60,7 @@ class WSReceiverNode:
         self.whisper_database_path = os.path.join(self.run_dir, "whisper_data.csv")
         # if files do not exist, create it
         if not os.path.exists(self.whisper_database_path):
-            _df = pd.DataFrame(columns=["casualty_id", "whisper_id", "whisper_pred"])
+            _df = pd.DataFrame(columns=["casualty_id", "whisper_id", "alertness_verbal"])
             _df.to_csv(self.whisper_database_path, index=False)
             rospy.loginfo(f"Created file at {self.whisper_database_path}.")
         else:
