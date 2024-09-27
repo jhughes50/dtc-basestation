@@ -809,6 +809,7 @@ class VLMNode:
     def _predict_motion_from_video(self, images):
         failed_to_parse = True
 
+        num_tries = 0
         while failed_to_parse:
             conv_mode = self._get_conv_mode(self.model_name)
             conv = conv_templates[conv_mode].copy()
@@ -863,11 +864,21 @@ class VLMNode:
                     failed_to_parse = False
                     break
 
+            num_tries += 1
+
+            if num_tries == 3 and failed_to_parse:
+                rospy.loginfo(
+                    f"Failed to parse the response after {num_tries} tries. " + \
+                    "Defaulting to untestable."
+                )
+                return {"alertness_motor": "untestable"}
+
         return final_response
 
 
     def _predict_if_whisper_is_text(self, whisper):
         failed_to_parse = True
+        num_tries = 0
 
         while failed_to_parse:
             conv_mode = self._get_conv_mode(self.model_name)
@@ -910,6 +921,15 @@ class VLMNode:
                     rospy.loginfo(f"Successfully parsed the response after {i} tries.")
                     failed_to_parse = False
                     break
+            
+            num_tries += 1
+
+            if num_tries == 3 and failed_to_parse:
+                rospy.loginfo(
+                    f"Failed to parse the response after {num_tries} tries. " + \
+                    "Defaulting to absence."
+                )
+                return {"alertness_verbal": "absence"}
 
         return final_response
     
