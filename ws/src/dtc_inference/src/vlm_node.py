@@ -876,7 +876,7 @@ class VLMNode:
                     f"Failed to parse the response after {num_tries} tries. " + \
                     "Defaulting to untestable."
                 )
-                return {"alertness_motor": "untestable"}
+                return {"alertness_motor": 3}
 
         return final_response
 
@@ -939,7 +939,7 @@ class VLMNode:
                     f"Failed to parse the response after {num_tries} tries. " + \
                     "Defaulting to absence."
                 )
-                return {"alertness_verbal": "absence"}
+                return {"alertness_verbal": 2}
 
         return final_response
     
