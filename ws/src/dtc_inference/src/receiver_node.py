@@ -268,22 +268,33 @@ class WSReceiverNode:
         with portalocker.Lock(self.whisper_data_path, "r", timeout=1):
             seen_whisper_texts_df = pd.read_csv(self.whisper_data_path)
         
-        # check the smallest id for the whisper text for the casualty id
-        if len(seen_whisper_texts_df[seen_whisper_texts_df["casualty_id"] == casualty_id]) > 0:
-            smallest_id = seen_whisper_texts_df["whisper_id"].min()
-        else:
-            smallest_id = 0
+            # check the smallest id for the whisper text for the casualty id
+            if len(seen_whisper_texts_df[seen_whisper_texts_df["casualty_id"] == casualty_id]) > 0:
+                smallest_id = seen_whisper_texts_df["whisper_id"].min()
+            else:
+                smallest_id = 0
 
-        if smallest_id < 2:
-            os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True) 
-            
-            if "Timeout: No speech detected" in whisper:
-                whisper = " "
+            if smallest_id < 2:
+                os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True) 
+                
+                if "Timeout: No speech detected" in whisper:
+                    whisper = " "
 
-            # save whisper text to a .txt file
-            with open(os.path.join(self.run_dir, str(casualty_id), f"whisper_{smallest_id}.txt"), "w") as f:
-                f.write(whisper)
-            rospy.loginfo("Successfully saved whisper text.")
+                # save whisper text to a .txt file
+                with open(os.path.join(self.run_dir, str(casualty_id), f"whisper_{smallest_id}.txt"), "w") as f:
+                    f.write(whisper)
+                rospy.loginfo("Successfully saved whisper text.")
+
+            # append the whisper text to the whisper data
+            append_dict = {
+                "casualty_id": casualty_id,
+                "whisper_id": smallest_id,
+                "whisper_text": whisper,
+            }
+            append_df = pd.DataFrame([append_dict])
+            seen_whisper_texts_df = pd.concat([seen_whisper_texts_df, append_df], ignore_index=True)
+            seen_whisper_texts_df.to_csv(self.whisper_data_path, index=False)
+            rospy.loginfo("Appended to whisper_data DF")
 
         msg = Int8()
         msg.data = casualty_id
