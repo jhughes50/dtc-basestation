@@ -42,7 +42,7 @@ LABEL_CLASSES = [
 class WSReceiverNode:
     def __init__(self):
         # create a run directory with a timestamp
-        run_name = rospy.get_param("run_name", time.strftime("%Y%m%d_%H%M%S"))
+        run_name = rospy.get_param("~run_name", time.strftime("%Y%m%d_%H%M%S"))
         self.run_dir = (
             f"/home/{getpass.getuser()}/data/{run_name}/"
         )
