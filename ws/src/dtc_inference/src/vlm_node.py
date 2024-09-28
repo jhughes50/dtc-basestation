@@ -983,7 +983,7 @@ class VLMNode:
             return
 
         first_image = Image.open(image_path_list[0])
-        first_image_height, first_image_width = first_image.size
+        first_image_width, first_image_height = first_image.size
 
         num_images = len(image_path_list)
         rospy.loginfo(f"Received {num_images} image paths in VLM, starting prediction.")
@@ -1030,7 +1030,7 @@ class VLMNode:
             if len(all_drone_images_paths) == 1:
                 rospy.loginfo(f"Found drone image for casualty_id {casualty_id}.")
 
-                drone_img_list = [Image.open(all_drone_images_paths[0]).resize((first_image_width // 2, first_image_height // 2))]
+                drone_img_list = [Image.open(all_drone_images_paths[0])]
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
                 rospy.loginfo(f"Successfully predicted drone labels.")
                 self._save_aerial_predictions(drone_vlm_pred, casualty_id)

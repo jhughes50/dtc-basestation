@@ -198,7 +198,7 @@ class WSReceiverNode:
             num_images_for_id = 3
             if casualty_id in image_df["casualty_id"].values:
                 num_images_for_id = len(image_df[image_df["casualty_id"] == casualty_id]) + 3
-            rospy.loginfo(f"Received {num_images_for_id} images for casualty ID {casualty_id}.")
+            rospy.loginfo(f"Received images {num_images_for_id - 3} to {num_images_for_id} for casualty ID {casualty_id}.")
 
             if num_images_for_id > 6:
                 rospy.loginfo("Received more than 6 images for same casualty ID. Skipping.")
