@@ -144,7 +144,7 @@ class WSReceiverNode:
         Returns:
             bool: Whether or not new instance was added.
         """
-        rospy.loginfo("Received drone image")
+        rospy.loginfo("Received Drone Image Message")
         with portalocker.Lock(self.aerial_image_data_path, "r+", timeout=1):
             aerial_image_df = pd.read_csv(self.aerial_image_data_path)
 
@@ -176,7 +176,7 @@ class WSReceiverNode:
         return True
 
     def ground_image_callback(self, msg):
-        print("Received Image Message")
+        print(f"Received Ground Image Message from {msg.header.frame_id}")
         casualty_id = msg.casualty_id.data
 
         # TODO: adjust this with jason
@@ -241,7 +241,7 @@ class WSReceiverNode:
         """
 
         # Parse the message
-        rospy.loginfo("Received Ground Message")
+        rospy.loginfo(f"Received Ground Detection Message from {msg.header.frame_id}")
         whisper = msg.whisper.data
         acc_respiration_rate = msg.acconeer_respiration_rate.data
         neural_heart_rate = msg.neural_heart_rate.data
