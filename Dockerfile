@@ -104,16 +104,20 @@ RUN pip3 install bitsandbytes transformers==4.37.2 pydantic accelerate==0.21.0 f
 RUN /bin/sh -c 'echo ". /opt/ros/noetic/setup.bash" >> ~/.bashrc'
 RUN sudo apt-get install -y ros-noetic-vision-msgs
 
+RUN sudo apt install vim -y
+
+RUN pip3 install peft zmq flask
+
 RUN mkdir -p ws/src
 COPY ./ws/src/gone ./ws/src/gone
 COPY ./ws/src/tdd2 ./ws/src/tdd2
 COPY ./ws/src/dtc_inference ./ws/src/dtc_inference
+COPY ./ws/src/flask_ui ./ws/src/flask_ui
 
 RUN cd ws/src/ \
  && git clone https://github.com/KumarRobotics/MOCHA
 
 RUN pip3 install --upgrade pip
-RUN pip3 install flash-attn --no-build-isolation
 RUN cd LLaVA-NeXT && pip3 install .
 
 RUN cd ~/ws \
@@ -122,9 +126,6 @@ RUN cd ~/ws \
 
 COPY ./install/download.py download.py
 #RUN python3 download.py
-RUN pip3 install peft zmq
-
-RUN sudo apt install vim -y
 
 RUN sudo chown $USER:$USER ~/.bashrc \
  && /bin/sh -c 'echo sudo chown -R $USER:$USER /home/dtc/.cache/huggingface/ >> ~/.bashrc' \
