@@ -25,8 +25,8 @@ def receive_text():
     # Add text to the shared list
     with result_lock:
         streamed_results.append({"type": "text", "content": text})
-        if stream_end:
-            streamed_results.append({"type": "text", "content": "<br>Stream ended.<br>"})
+        # if stream_end:
+        #     streamed_results.append({"type": "text", "content": "<br>Stream ended.<br>"})
 
     return jsonify({"message": "Text received successfully"}), 200
 
