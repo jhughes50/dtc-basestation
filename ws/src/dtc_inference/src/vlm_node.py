@@ -981,14 +981,17 @@ class VLMNode:
             rospy.logerr(f"Could not determine round number from image_path_list: {image_path_list}")
             return
 
+        first_image = Image.open(image_path_list[0])
+        first_image_height, first_image_width = first_image.size
+
         num_images = len(image_path_list)
         rospy.loginfo(f"Received {num_images} image paths in VLM, starting prediction.")
-        self.streamer.send_image(Image.open(image_path_list[0]))
+        self.streamer.send_image(first_image.resize((first_image_width // 2, first_image_height // 2)))
         rospy.loginfo(f"Sent image to streamer.")
 
         ### START WITH GROUND
         # Run the VLM for the ground image
-        ground_img_list = [Image.open(image_path_list[0])]
+        ground_img_list = [first_image.resize((first_image_width // 2, first_image_height // 2))]
         rospy.loginfo("Received images, triggering VLM.")
         ground_vlm_pred, ground_vlm_prompts = self._predict_all_labels_from_vlm(ground_img_list)
         rospy.loginfo(f"Successfully predicted ground labels.")
@@ -1003,7 +1006,7 @@ class VLMNode:
             rospy.logerr(f"Could not save ground prompts.")
 
         ### VIDEO PREDICTION WITH GROUND
-        video_img_list = [Image.open(image_path_list[i]) for i in range(len(image_path_list))]
+        video_img_list = [Image.open(image_path_list[i]).resize((first_image_width // 2, first_image_height // 2)) for i in range(len(image_path_list))]
         motion_response_dict = self._predict_motion_from_video(video_img_list)
         rospy.loginfo(f"Successfully predicted motion labels.")
         
@@ -1026,7 +1029,7 @@ class VLMNode:
             if len(all_drone_images_paths) == 1:
                 rospy.loginfo(f"Found drone image for casualty_id {casualty_id}.")
 
-                drone_img_list = [Image.open(all_drone_images_paths[0])]
+                drone_img_list = [Image.open(all_drone_images_paths[0]).resize((first_image_width // 2, first_image_height // 2))]
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
                 rospy.loginfo(f"Successfully predicted drone labels.")
                 self._save_aerial_predictions(drone_vlm_pred, casualty_id)
