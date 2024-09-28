@@ -983,9 +983,8 @@ class VLMNode:
 
         num_images = len(image_path_list)
         rospy.loginfo(f"Received {num_images} image paths in VLM, starting prediction.")
-
-        for image_path in image_path_list:
-            self.streamer.send_image(Image.open(image_path))
+        self.streamer.send_image(Image.open(image_path_list[0]))
+        rospy.loginfo(f"Sent image to streamer.")
 
         ### START WITH GROUND
         # Run the VLM for the ground image
