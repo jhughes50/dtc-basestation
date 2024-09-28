@@ -939,8 +939,8 @@ class VLMNode:
                 "alertness_ocular": aerial_preds["alertness_ocular"],
                 "severe_hemorrhage": aerial_preds["severe_hemorrhage"],
             }
-            append_df = pd.DataFrame([predictions])
-            df = pd.concat([df, append_df], ignore_index=True)
+            new_row = pd.DataFrame([predictions])
+            df = pd.concat([df, new_row], ignore_index=True)
             df.to_csv(f, index=False)
             rospy.loginfo(f"Successfully saved aerial predictions.")
 
@@ -954,9 +954,8 @@ class VLMNode:
                 "whisper_id": whisper_id,
                 "alertness_verbal": whisper_preds["alertness_verbal"],
             }
-            df = pd.DataFrame([predictions])
-            append_df = pd.DataFrame([predictions])
-            df = pd.concat([df, append_df], ignore_index=True)
+            new_row = pd.DataFrame([predictions])
+            df = pd.concat([df, new_row], ignore_index=True)
             df.to_csv(f, index=False)
             rospy.loginfo(f"Successfully saved whisper predictions for id {whisper_id}.")
 
@@ -1032,11 +1031,7 @@ class VLMNode:
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
                 rospy.loginfo(f"Successfully predicted drone labels.")
                 self._save_aerial_predictions(drone_vlm_pred, casualty_id)
-            else:
-                rospy.loginfo(
-                    f"Did not find drone image for casualty_id {casualty_id}. Skipping drone image."
-                )
-
+                
                 # save the air prompts into the directory that contains the drone_image
                 for i, prompt in enumerate(drone_vlm_prompts):
                     try:
@@ -1045,6 +1040,11 @@ class VLMNode:
                         rospy.loginfo(f"Successfully saved air prompts.")
                     except:
                         rospy.logerr(f"Could not save air prompts.")
+
+            else:
+                rospy.loginfo(
+                    f"Did not find drone image for casualty_id {casualty_id}. Skipping drone image."
+                )
                                     
         ### CONTINUE TO WHISPER
         # load the seens whisper ids:

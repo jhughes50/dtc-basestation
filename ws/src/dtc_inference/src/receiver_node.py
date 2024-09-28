@@ -165,8 +165,8 @@ class WSReceiverNode:
                 "img_path": img_path,
             }
             # add vlm predictions to the append_dict
-            append_df = pd.DataFrame([append_dict])
-            aerial_image_df = pd.concat([aerial_image_df, append_df], ignore_index=True)
+            new_row = pd.DataFrame([append_dict])
+            aerial_image_df = pd.concat([aerial_image_df, new_row], ignore_index=True)
             aerial_image_df.to_csv(self.aerial_image_data_path, index=False)
             rospy.loginfo("Appended to aerial_image_data DF")
 
