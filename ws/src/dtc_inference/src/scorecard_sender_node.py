@@ -6,8 +6,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import rospy
-from std_msgs.msg import String
-from dtc_inference.msg import ReceivedSignal, ImageAnalysisResult
+from std_msgs.msg import String, Int8
 
 import os
 import requests
@@ -604,18 +603,18 @@ def parse_dict_response(response, label_class):
 class ScorecardSenderNode:
     def __init__(self):
         self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
-        self.vlm_sub_1 = rospy.Subscriber(
-            "/image_analysis_results", ImageAnalysisResult, self.image_callback
+        self.vlm_sub = rospy.Subscriber(
+            "/image_analysis_results", Int8, self.image_callback
         ) # TODO: fix this
         self.receiver_sub = rospy.Subscriber(
-            "/received_signals", ReceivedSignal, self.signal_callback
+            "/received_signals", Int8, self.signal_callback
         )
 
-        self.ground_database_path = os.path.join(self.run_dir, "ground_data.csv")
-        self.drone_database_path = os.path.join(self.run_dir, "drone_data.csv")
-        self.whisper_database_path = os.path.join(self.run_dir, "whisper_data.csv")
-        self.signal_database_path = os.path.join(self.run_dir, "signal_data.csv")
+        self._create_databases()
+        
+        self.scoring_client = ScoringClient(ip="http://172.17.0.1:8000")
 
+    def _create_databases(self):
         self.sc_vlm_messages_received_path = os.path.join(self.run_dir, "sc_vlm_messages_received.csv")
         if not os.path.exists(self.sc_vlm_messages_received_path):
             _df = pd.DataFrame(columns=["casualty_id"])
@@ -624,7 +623,18 @@ class ScorecardSenderNode:
         else:
             rospy.loginfo(f"File already exists at {self.sc_vlm_messages_received_path}. Continuing.")
 
-        self.scoring_client = ScoringClient(ip="http://172.17.0.1:8000")
+        self.sc_signal_messages_received_path = os.path.join(self.run_dir, "sc_signal_messages_received.csv")
+        if not os.path.exists(self.sc_signal_messages_received_path):
+            _df = pd.DataFrame(columns=["casualty_id"])
+            _df.to_csv(self.sc_signal_messages_received_path, index=False)
+            rospy.loginfo(f"Created file at {self.sc_signal_messages_received_path}.")
+        else:
+            rospy.loginfo(f"File already exists at {self.sc_signal_messages_received_path}. Continuing.")
+
+        self.ground_pred_database_path = os.path.join(self.run_dir, "ground_image_pred.csv")
+        self.aerial_pred_database_path = os.path.join(self.run_dir, "aerial_image_pred.csv")
+        self.whisper_pred_database_path = os.path.join(self.run_dir, "whisper_pred.csv")
+        self.signal_database_path = os.path.join(self.run_dir, "signal_data.csv")
 
     def _aggregate_results(self, results):
         def custom_aggregation_fn(x, label_class):
@@ -677,128 +687,85 @@ class ScorecardSenderNode:
 
     def image_callback(self, msg):
         rospy.loginfo(f"Received image analysis result.")
-        casualty_id = msg.casualty_id
-
-        # save the data into the database
-        with portalocker.Lock(self.ground_database_path, "r+", timeout=1):
-            ground_database_df = pd.read_csv(self.ground_database_path)
-            append_dict = {
-                "casualty_id": casualty_id,
-                "trauma_head": msg.trauma_head[0],
-                "trauma_torso": msg.trauma_torso[0],
-                "trauma_lower_ext": msg.trauma_lower_ext[0],
-                "trauma_upper_ext": msg.trauma_upper_ext[0],
-                "alertness_ocular": msg.alertness_ocular[0],
-                "severe_hemorrhage": msg.severe_hemorrhage[0],
-                "alertness_motor": msg.alertness_motor[0],
-            }
-            ground_database_df = ground_database_df._append(append_dict, ignore_index=True)
-            ground_database_df.to_csv(self.ground_database_path, index=False, mode="w")
-
-        with portalocker.Lock(self.drone_database_path, "r+", timeout=1):
-            # check if there are more than 1 entry in msg.trauma_head
-            if len(msg.trauma_head) > 1:
-                drone_database_df = pd.read_csv(self.drone_database_path)
-                append_dict = {
-                    "casualty_id": casualty_id,
-                    "trauma_head": msg.trauma_head[1],
-                    "trauma_torso": msg.trauma_torso[1],
-                    "trauma_lower_ext": msg.trauma_lower_ext[1],
-                    "trauma_upper_ext": msg.trauma_upper_ext[1],
-                    "alertness_ocular": msg.alertness_ocular[1],
-                    "severe_hemorrhage": msg.severe_hemorrhage[1],
-                }
-                drone_database_df = drone_database_df._append(append_dict, ignore_index=True)
-                drone_database_df.to_csv(self.drone_database_path, index=False, mode="w") 
-
-        with portalocker.Lock(self.whisper_database_path, "r+", timeout=1):
-            # check if there are whisper entries at all
-            if len(msg.alertness_verbal) > 0:
-                whisper_database_df = pd.read_csv(self.whisper_database_path)
-                cur_whisper_id = len(whisper_database_df[whisper_database_df["casualty_id"] == casualty_id])
-                for i in range(len(msg.alertness_verbal)):
-                    append_dict = {
-                        "casualty_id": casualty_id,
-                        "whisper_id": cur_whisper_id + i,
-                        "alertness_verbal": msg.alertness_verbal[i],
-                    }
-                    whisper_database_df = whisper_database_df._append(append_dict, ignore_index=True)
-                whisper_database_df.to_csv(self.whisper_database_path, index=False, mode="w")
+        casualty_id = msg.data
 
         # check number of received messages, if this is the second, send to scorecard
-        # otherwise, simply save and wait for the next message
+        # otherwise, simply wait for the next message
         with portalocker.Lock(self.sc_vlm_messages_received_path, "r+", timeout=1):
             sc_vlm_messages_received_df = pd.read_csv(self.sc_vlm_messages_received_path)
             append_dict = {
                 "casualty_id": casualty_id,
             }
-            sc_vlm_messages_received_df = sc_vlm_messages_received_df._append(append_dict, ignore_index=True)
-            sc_vlm_messages_received_df.to_csv(self.sc_vlm_messages_received_path, index=False, mode="w")
+            df = pd.DataFrame(append_dict, index=[0])
+            df.to_csv(self.sc_vlm_messages_received_path, index=False, mode="a", header=False)
+            
+        if len(sc_vlm_messages_received_df) == 2:
+            rospy.loginfo(f"Received 2 image messages for casualty {casualty_id}.")
+            
+            # load image, drone and whisper data
+            with portalocker.Lock(self.ground_pred_database_path, "r", timeout=1):
+                ground_database_df = pd.read_csv(self.ground_pred_database_path)
+                ground_data = ground_database_df[ground_database_df["casualty_id"] == casualty_id]
 
-        if casualty_id in sc_vlm_messages_received_df["casualty_id"].values:
-            if len(sc_vlm_messages_received_df) == 2:
-                rospy.loginfo(f"Received 2 messages for casualty {casualty_id}.")
-                
-                # load image, drone and whisper data
-                with portalocker.Lock(self.ground_database_path, "r+", timeout=1):
-                    ground_database_df = pd.read_csv(self.ground_database_path)
-                    ground_data = ground_database_df[ground_database_df["casualty_id"] == casualty_id]
+            with portalocker.Lock(self.aerial_pred_database_path, "r", timeout=1):
+                drone_database_df = pd.read_csv(self.aerial_pred_database_path)
+                drone_data = drone_database_df[drone_database_df["casualty_id"] == casualty_id]
 
-                with portalocker.Lock(self.drone_database_path, "r+", timeout=1):
-                    drone_database_df = pd.read_csv(self.drone_database_path)
-                    drone_data = drone_database_df[drone_database_df["casualty_id"] == casualty_id]
+            with portalocker.Lock(self.whisper_pred_database_path, "r", timeout=1):
+                whisper_database_df = pd.read_csv(self.whisper_pred_database_path)
+                whisper_data = whisper_database_df[whisper_database_df["casualty_id"] == casualty_id]
 
-                with portalocker.Lock(self.whisper_database_path, "r+", timeout=1):
-                    whisper_database_df = pd.read_csv(self.whisper_database_path)
-                    whisper_data = whisper_database_df[whisper_database_df["casualty_id"] == casualty_id]
+            # send to scorecard
+            to_agg_dict = {label_class: [] for label_class in LABEL_CLASSES}
+            for data in [ground_data, drone_data, whisper_data]:
+                # not all dataframes will have all columns
+                for label_class in LABEL_CLASSES:
+                    if label_class in data.columns:
+                        to_agg_dict[label_class] += data[label_class].values.tolist()
 
-                # send to scorecard
-                to_agg_dict = {label_class: [] for label_class in LABEL_CLASSES}
-                for data in [ground_data, drone_data, whisper_data]:
-                    # not all dataframes will have all columns
-                    for label_class in LABEL_CLASSES:
-                        if label_class in data.columns:
-                            to_agg_dict[label_class] += data[label_class].values.tolist()
+            # aggregate results
+            agg_res = self._aggregate_results(to_agg_dict)
 
-                # aggregate results
-                agg_res = self._aggregate_results(to_agg_dict)
+            # send the results to the scorecard
+            scorecard_frame = pd.DataFrame(columns=["type", "value"])
+            for key in agg_res.keys():
+                scorecard_frame = scorecard_frame._append(
+                    {"type": key, "value": agg_res[key]}, ignore_index=True
+                )
 
-                # send the results to the scorecard
-                scorecard_frame = pd.DataFrame(columns=["type", "value"])
-                for key in agg_res.keys():
-                    scorecard_frame = scorecard_frame._append(
-                        {"type": key, "value": agg_res[key]}, ignore_index=True
-                    )
-
-                rospy.loginfo(f"Attempting to send image analysis to scorecard. \n " + \
-                            f"Scorecard: {scorecard_frame}")
-                self.scoring_client.send_partial_scorecard("test", casualty_id, scorecard_frame)
-                rospy.loginfo("Successfully sent image analysis to scorecard.")            
+            rospy.loginfo(f"Attempting to send image analysis to scorecard. \n " + \
+                        f"Scorecard: {scorecard_frame}")
+            self.scoring_client.send_partial_scorecard("test", casualty_id, scorecard_frame)
+            rospy.loginfo("Successfully sent image analysis to scorecard.")            
 
 
     def signal_callback(self, msg):
         rospy.loginfo(f"Received signal call")
-        casualty_id = msg.casualty_id
-        heart_rate = msg.heart_rate
-        respiratory_rate = msg.respiratory_rate
-
-        # save the data into the database
-        with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
-            signal_database_df = pd.read_csv(self.signal_database_path)
+        casualty_id = msg.data
+        
+        # check number of received messages, if this is the second, send to scorecard
+        # otherwise, simply wait for the next message
+        with portalocker.Lock(self.sc_signal_messages_received_path, "r+", timeout=1):
+            sc_signal_messages_received_df = pd.read_csv(self.sc_signal_messages_received_path)
             append_dict = {
                 "casualty_id": casualty_id,
-                "heart_rate": heart_rate,
-                "respiratory_rate": respiratory_rate,
             }
-            signal_database_df = signal_database_df._append(append_dict, ignore_index=True)
-            signal_database_df.to_csv(self.signal_database_path, index=False, mode="w")
-                    
+            df = pd.DataFrame(append_dict, index=[0])
+            df.to_csv(self.sc_signal_messages_received_path, index=False, mode="a", header=False)
+
+        if len(sc_signal_messages_received_df) == 2:
+            rospy.loginfo(f"Received 2 signal messages for casualty {casualty_id}.")
+
+        # load signal data
+        with portalocker.Lock(self.signal_database_path, "r", timeout=1):
+            signal_database_df = pd.read_csv(self.signal_database_path)
+
         # if casualty id in signal_database_df has two entries
         # send a majority vote to the scorecard
         signal_values = signal_database_df[signal_database_df["casualty_id"] == casualty_id]
         if len(signal_values) == 2:
-            heart_rate_to_send = signal_values["heart_rate"].mode()[0]
-            respiratory_rate_to_send = signal_values["respiratory_rate"].mode()[0]
+            heart_rate_to_send = signal_values["heart_rate"].mean()
+            respiratory_rate_to_send = signal_values["respiratory_rate"].mean()
 
             scorecard_frame = pd.DataFrame(columns=["type", "value"])
             scorecard_frame = scorecard_frame._append(

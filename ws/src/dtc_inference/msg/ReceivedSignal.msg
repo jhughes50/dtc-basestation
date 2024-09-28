@@ -1,3 +1,0 @@
-int8 casualty_id
-float32 heart_rate
-float32 respiratory_rate
