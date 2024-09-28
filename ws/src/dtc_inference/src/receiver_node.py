@@ -56,7 +56,6 @@ class WSReceiverNode:
         rospy.loginfo(f"Set up device {self.device}.")
         
         robot_name = rospy.get_param("~ground_robot")
-        drone_name = rospy.get_param("~aerial_robot")
 
         # create subscriber to drone and ground
         self.drone_sub = rospy.Subscriber(
@@ -74,7 +73,7 @@ class WSReceiverNode:
             "/received_signals", Int8, queue_size=2
         )
         self.image_path_publisher = rospy.Publisher(
-            "/received_images", Int8, queue_size=2
+            "/received_images", ReceivedImageData, queue_size=2
         )
         rospy.loginfo(f"Created publishers for signals and images.")
 
@@ -91,13 +90,13 @@ class WSReceiverNode:
         rospy.loginfo(f"Published run directory at {self.run_dir}.")
 
     def _create_databases(self):
-        self.whisper_database_path = os.path.join(self.run_dir, "whisper_data.csv")
-        if not os.path.exists(self.whisper_database_path):
+        self.whisper_data_path = os.path.join(self.run_dir, "whisper_data.csv")
+        if not os.path.exists(self.whisper_data_path):
             _df = pd.DataFrame(columns=["casualty_id", "whisper_id", "whisper_text"])
-            _df.to_csv(self.whisper_database_path, index=False)
-            rospy.loginfo(f"Created file at {self.whisper_database_path}.")
+            _df.to_csv(self.whisper_data_path, index=False)
+            rospy.loginfo(f"Created file at {self.whisper_data_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.whisper_database_path}. Continuing.")
+            rospy.loginfo(f"File already exists at {self.whisper_data_path}. Continuing.")
 
         self.aerial_image_data_path = os.path.join(self.run_dir, "aerial_image_data.csv")
         if not os.path.exists(self.aerial_image_data_path):
@@ -109,18 +108,18 @@ class WSReceiverNode:
         else:
             rospy.loginfo(f"File already exists at {self.aerial_image_data_path}. Continuing.")
 
-        self.ground_image_database_path = os.path.join(self.run_dir, "ground_image_data.csv")
-        if not os.path.exists(self.ground_image_database_path):
+        self.ground_image_data_path = os.path.join(self.run_dir, "ground_image_data.csv")
+        if not os.path.exists(self.ground_image_data_path):
             _df = pd.DataFrame(
                 columns=[
                     "casualty_id",
                     "img_path",
                 ]
             )
-            _df.to_csv(self.ground_image_database_path, index=False)
-            rospy.loginfo(f"Created file at {self.ground_image_database_path}.")
+            _df.to_csv(self.ground_image_data_path, index=False)
+            rospy.loginfo(f"Created file at {self.ground_image_data_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.ground_image_database_path}. Continuing.")
+            rospy.loginfo(f"File already exists at {self.ground_image_data_path}. Continuing.")
 
         self.signal_database_path = os.path.join(self.run_dir, "signal_data.csv")
         if not os.path.exists(self.signal_database_path):
@@ -165,8 +164,6 @@ class WSReceiverNode:
 
             append_dict = {
                 "casualty_id": casualty_id,
-                "lat": lat,
-                "long": long,
                 "img_path": img_path,
             }
             # add vlm predictions to the append_dict
@@ -196,8 +193,8 @@ class WSReceiverNode:
         all_ground_images = [ground_img_1, ground_img_2, ground_img_3]
 
         # load all previous images
-        with portalocker.Lock(self.image_data_path, "r+", timeout=1):
-            image_df = pd.read_csv(self.image_data_path)
+        with portalocker.Lock(self.ground_image_data_path, "r+", timeout=1):
+            image_df = pd.read_csv(self.ground_image_data_path)
             
             num_images_for_id = 3
             if casualty_id in image_df["casualty_id"].values:
@@ -236,13 +233,7 @@ class WSReceiverNode:
         Args:
             msg (GroundDetection): Message containing gps and the detection values
         """
-        with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
-            database_df = pd.read_csv(self.signal_database_path)
 
-        casualty_id = msg.casualty_id.data
-        if len(database_df[database_df["casualty_id"] == casualty_id]) > 1:
-            return False
-        
         # Parse the message
         rospy.loginfo("Received Ground Message")
         whisper = msg.whisper.data
@@ -250,9 +241,25 @@ class WSReceiverNode:
         neural_heart_rate = msg.neural_heart_rate.data
         rospy.loginfo("Successfully parsed msg.")
 
+        with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
+            database_df = pd.read_csv(self.signal_database_path)
+
+            casualty_id = msg.casualty_id.data
+            if len(database_df[database_df["casualty_id"] == casualty_id]) > 1:
+                return False
+            else:
+                append_dict = {
+                    "casualty_id": casualty_id,
+                    "heart_rate": neural_heart_rate.data,
+                    "respiratory_rate": acc_respiration_rate.data,
+                }
+                df = pd.DataFrame(append_dict, index=[0])
+                df.to_csv(self.signal_database_path, index=False, mode="a")
+                rospy.loginfo("Appended to signal_data DF")                   
+
         # save the whisper text
-        with portalocker.Lock(self.whisper_database_path, "r", timeout=1):
-            seen_whisper_texts_df = pd.read_csv(self.whisper_database_path)
+        with portalocker.Lock(self.whisper_data_path, "r", timeout=1):
+            seen_whisper_texts_df = pd.read_csv(self.whisper_data_path)
         
         # check the smallest id for the whisper text for the casualty id
         if len(seen_whisper_texts_df[seen_whisper_texts_df["casualty_id"] == casualty_id]) > 0:
