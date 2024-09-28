@@ -781,8 +781,7 @@ class VLMNode:
             QUESTION_STRING = f"{DEFAULT_IMAGE_TOKEN} , {DEFAULT_IMAGE_TOKEN} , {DEFAULT_IMAGE_TOKEN} " + \
                 "You are given a set of 3 images. All images contain a person. " + \
                 "Did the person move between the images? Respond with a dictionary with the key 'alertness_motor' " + \
-                "and the value 'normal' for no movement, 'abnormal' for movement, 'absence' for no person, or " + \
-                "'untestable' if the movement is untestable."
+                "and the value 'normal' for movement, 'absence' for no movement".
             
             conv.append_message(conv.roles[0], QUESTION_STRING)
             conv.append_message(conv.roles[1], None)
