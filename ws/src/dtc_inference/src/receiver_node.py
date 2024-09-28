@@ -219,8 +219,8 @@ class WSReceiverNode:
                         "img_path": img_path,
                     }]
                 )
-                append_df = pd.concat([image_df, append_df], ignore_index=True)
-                append_df.to_csv(self.ground_image_data_path, index=False) 
+                image_df = pd.concat([image_df, append_df], ignore_index=True)
+                image_df.to_csv(self.ground_image_data_path, index=False) 
             rospy.loginfo(f"Added new image to Dataframe and saved image at {img_path}.")
 
         rospy.loginfo("Successfully wrote all images to files.")            

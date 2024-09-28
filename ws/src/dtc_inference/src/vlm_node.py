@@ -917,6 +917,7 @@ class VLMNode:
                 "trauma_lower_ext": ground_vlm_pred["trauma_lower_ext"],
                 "trauma_upper_ext": ground_vlm_pred["trauma_upper_ext"],
                 "alertness_ocular": ground_vlm_pred["alertness_ocular"],
+                "severe_hemorrhage": ground_vlm_pred["severe_hemorrhage"],
                 "alertness_motor": motion_vlm_pred["alertness_motor"],
             }
             new_row = pd.DataFrame([predictions])
