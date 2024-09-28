@@ -922,7 +922,7 @@ class VLMNode:
             }
             new_row = pd.DataFrame([predictions])
             df = pd.concat([df, new_row], ignore_index=True)
-            df.to_csv(f, index=False)
+            df.to_csv(self.ground_image_pred_path, index=False)
             rospy.loginfo(f"Successfully saved ground predictions.")
 
     def _save_aerial_predictions(self, aerial_preds, casualty_id):
@@ -941,7 +941,7 @@ class VLMNode:
             }
             append_df = pd.DataFrame([predictions])
             df = pd.concat([df, append_df], ignore_index=True)
-            df.to_csv(f, index=False)
+            df.to_csv(self.aerial_image_pred_path, index=False)
             rospy.loginfo(f"Successfully saved aerial predictions.")
 
     def _save_whisper_predictions(self, whisper_preds, whisper_id, casualty_id):
@@ -954,10 +954,9 @@ class VLMNode:
                 "whisper_id": whisper_id,
                 "alertness_verbal": whisper_preds["alertness_verbal"],
             }
-            df = pd.DataFrame([predictions])
             append_df = pd.DataFrame([predictions])
             df = pd.concat([df, append_df], ignore_index=True)
-            df.to_csv(f, index=False)
+            df.to_csv(self.whisper_pred_path, index=False)
             rospy.loginfo(f"Successfully saved whisper predictions for id {whisper_id}.")
 
     def vlm_callback(self, msg):
