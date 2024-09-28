@@ -270,7 +270,7 @@ class WSReceiverNode:
         
             # check the smallest id for the whisper text for the casualty id
             if len(seen_whisper_texts_df[seen_whisper_texts_df["casualty_id"] == casualty_id]) > 0:
-                smallest_id = seen_whisper_texts_df["whisper_id"].min()
+                smallest_id = seen_whisper_texts_df["whisper_id"].min() + 1
             else:
                 smallest_id = 0
 
