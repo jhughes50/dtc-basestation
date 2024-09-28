@@ -146,14 +146,12 @@ class WSReceiverNode:
         """
         rospy.loginfo("Received drone image")
         with portalocker.Lock(self.aerial_image_data_path, "r+", timeout=1):
-            df = pd.read_csv(self.aerial_image_data_path)
+            aerial_image_df = pd.read_csv(self.aerial_image_data_path)
 
             casualty_id = msg.casualty_id
-            if len(df[df["casualty_id"] == casualty_id]) > 0:
+            if len(aerial_image_df[aerial_image_df["casualty_id"] == casualty_id]) > 0:
                 return False
             
-            lat = msg.gps.latitude
-            long = msg.gps.longitude
             np_arr_image = np.frombuffer(msg.image.data, np.uint8)
             drone_img = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
             rospy.loginfo("Successfully decoded drone image.")
@@ -167,8 +165,9 @@ class WSReceiverNode:
                 "img_path": img_path,
             }
             # add vlm predictions to the append_dict
-            df = df._append(append_dict, ignore_index=True)
-            df.to_csv(self.aerial_image_data_path, index=False, mode="w")
+            append_df = pd.DataFrame([append_dict])
+            aerial_image_df = pd.concat([aerial_image_df, append_df], ignore_index=True)
+            aerial_image_df.to_csv(self.aerial_image_data_path, index=False)
             rospy.loginfo("Appended to aerial_image_data DF")
 
         os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True)
@@ -211,12 +210,19 @@ class WSReceiverNode:
             os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True)
 
             for img_path, ground_img in zip(img_paths, all_ground_images):
-                # write into the image df
-                image_df = image_df._append({"casualty_id": casualty_id, "img_path": img_path}, ignore_index=True)
+                # save the image
                 cv2.imwrite(img_path, ground_img)
-                rospy.loginfo(f"Added new image to Dataframe and saved image at {img_path}.")
+                # write into the image df
+                append_df = pd.DataFrame(
+                    [{
+                        "casualty_id": casualty_id,
+                        "img_path": img_path,
+                    }]
+                )
+                append_df = pd.concat([image_df, append_df], ignore_index=True)
+                append_df.to_csv(self.ground_image_data_path, index=False) 
+            rospy.loginfo(f"Added new image to Dataframe and saved image at {img_path}.")
 
-            image_df.to_csv(self.image_data_path, index=False, mode="w")
         rospy.loginfo("Successfully wrote all images to files.")            
         
         msg = ReceivedImageData()
@@ -242,10 +248,10 @@ class WSReceiverNode:
         rospy.loginfo("Successfully parsed msg.")
 
         with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
-            database_df = pd.read_csv(self.signal_database_path)
+            signal_database_df = pd.read_csv(self.signal_database_path)
 
             casualty_id = msg.casualty_id.data
-            if len(database_df[database_df["casualty_id"] == casualty_id]) > 1:
+            if len(signal_database_df[signal_database_df["casualty_id"] == casualty_id]) > 1:
                 return False
             else:
                 append_dict = {
@@ -253,8 +259,9 @@ class WSReceiverNode:
                     "heart_rate": neural_heart_rate.data,
                     "respiratory_rate": acc_respiration_rate.data,
                 }
-                df = pd.DataFrame(append_dict, index=[0])
-                df.to_csv(self.signal_database_path, index=False, mode="a")
+                append_df = pd.DataFrame([append_dict])
+                signal_database_df = pd.concat([signal_database_df, append_df], ignore_index=True)
+                signal_database_df.to_csv(self.signal_database_path, index=False)
                 rospy.loginfo("Appended to signal_data DF")                   
 
         # save the whisper text

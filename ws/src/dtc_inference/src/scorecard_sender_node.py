@@ -696,9 +696,10 @@ class ScorecardSenderNode:
             append_dict = {
                 "casualty_id": casualty_id,
             }
-            df = pd.DataFrame(append_dict, index=[0])
-            df.to_csv(self.sc_vlm_messages_received_path, index=False, mode="a", header=False)
-            
+            df = pd.DataFrame([append_dict])
+            sc_vlm_messages_received_df = pd.concat([sc_vlm_messages_received_df, df], ignore_index=True)
+            sc_vlm_messages_received_df.to_csv(self.sc_vlm_messages_received_path, index=False)
+
         if len(sc_vlm_messages_received_df) == 2:
             rospy.loginfo(f"Received 2 image messages for casualty {casualty_id}.")
             
@@ -750,9 +751,10 @@ class ScorecardSenderNode:
             append_dict = {
                 "casualty_id": casualty_id,
             }
-            df = pd.DataFrame(append_dict, index=[0])
-            df.to_csv(self.sc_signal_messages_received_path, index=False, mode="a", header=False)
-
+            df = pd.DataFrame([append_dict])
+            sc_signal_messages_received_df = pd.concat([sc_signal_messages_received_df, df], ignore_index=True)
+            sc_signal_messages_received_df.to_csv(self.sc_signal_messages_received_path, index=False)
+            
         if len(sc_signal_messages_received_df) == 2:
             rospy.loginfo(f"Received 2 signal messages for casualty {casualty_id}.")
 
