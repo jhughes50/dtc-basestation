@@ -443,17 +443,17 @@ class VLMNode:
 
     def _create_databases(self):
         self.ground_image_pred_path = os.path.join(self.run_dir, "ground_image_pred.csv")
-        if not os.path.exists(self.image_data_path):
+        if not os.path.exists(self.ground_image_pred_path):
             _df = pd.DataFrame(
                 columns=[
                     "casualty_id",
                     *LABEL_CLASSES[:-1],
                 ]
                 )
-            _df.to_csv(self.image_data_path, index=False)
-            rospy.loginfo(f"Created file at {self.image_data_path}.")
+            _df.to_csv(self.ground_image_pred_path, index=False)
+            rospy.loginfo(f"Created file at {self.ground_image_pred_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.image_data_path}. Continuing.")
+            rospy.loginfo(f"File already exists at {self.ground_image_pred_path}. Continuing.")
 
         self.aerial_image_pred_path = os.path.join(self.run_dir, "aerial_image_pred.csv")
         if not os.path.exists(self.aerial_image_pred_path):
@@ -650,7 +650,7 @@ class VLMNode:
                 do_sample=True if self.temperature > 0 else False,
                 temperature=self.temperature,
                 max_new_tokens=self.max_new_tokens,
-                streamer=self.streamer,
+                # streamer=self.streamer,
                 use_cache=False,
             )
 
@@ -813,7 +813,7 @@ class VLMNode:
                     do_sample=True if self.temperature > 0 else False,
                     temperature=self.temperature,
                     max_new_tokens=self.max_new_tokens,
-                    streamer=self.streamer,
+                    # streamer=self.streamer,
                     use_cache=False,
                     # stopping_criteria=[stopping_criteria],
                 )
@@ -876,7 +876,7 @@ class VLMNode:
                     do_sample=True if self.temperature > 0 else False,
                     temperature=self.temperature,
                     max_new_tokens=self.max_new_tokens,
-                    streamer=self.streamer,
+                    # streamer=self.streamer,
                     use_cache=False,
                     # stopping_criteria=[stopping_criteria],
                 )
@@ -1036,14 +1036,14 @@ class VLMNode:
                     f"Did not find drone image for casualty_id {casualty_id}. Skipping drone image."
                 )
 
-            # save the air prompts into the directory that contains the drone_image
-            for i, prompt in enumerate(drone_vlm_prompts):
-                try:
-                    with open(os.path.join(os.path.dirname(all_drone_images_paths[-1]), f"drone_prompt_{i}.txt"), "w") as f:
-                        f.write(prompt)
-                    rospy.loginfo(f"Successfully saved air prompts.")
-                except:
-                    rospy.logerr(f"Could not save air prompts.")
+                # save the air prompts into the directory that contains the drone_image
+                for i, prompt in enumerate(drone_vlm_prompts):
+                    try:
+                        with open(os.path.join(os.path.dirname(all_drone_images_paths[-1]), f"drone_prompt_{i}.txt"), "w") as f:
+                            f.write(prompt)
+                        rospy.loginfo(f"Successfully saved air prompts.")
+                    except:
+                        rospy.logerr(f"Could not save air prompts.")
                                     
         ### CONTINUE TO WHISPER
         # load the seens whisper ids:

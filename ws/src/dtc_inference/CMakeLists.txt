@@ -48,9 +48,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   InferenceEstimate.msg
-  ImageAnalysisResult.msg 
   ReceivedImageData.msg
-  ReceivedSignal.msg
 )
 
 ## Generate services in the 'srv' folder

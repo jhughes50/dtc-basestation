@@ -256,8 +256,8 @@ class WSReceiverNode:
             else:
                 append_dict = {
                     "casualty_id": casualty_id,
-                    "heart_rate": neural_heart_rate.data,
-                    "respiratory_rate": acc_respiration_rate.data,
+                    "heart_rate": neural_heart_rate,
+                    "respiratory_rate": acc_respiration_rate,
                 }
                 append_df = pd.DataFrame([append_dict])
                 signal_database_df = pd.concat([signal_database_df, append_df], ignore_index=True)
