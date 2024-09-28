@@ -592,6 +592,7 @@ class VLMNode:
         user_response_fn,
         final_prompt,
     ):
+        rospy.loginfo(f"Starting to predict on {label_class}.")
         keep_prompting = True
         num_steps_in_user_fn = 0
         while keep_prompting:
@@ -770,7 +771,7 @@ class VLMNode:
         return predictions, all_prompts
 
     def _predict_motion_from_video(self, images):
-        rospy.loginfo("Predicting motion from video.")
+        rospy.loginfo("Starting motion prediction.")
         failed_to_parse = True
 
         num_tries = 0
@@ -844,7 +845,7 @@ class VLMNode:
 
 
     def _predict_if_whisper_is_text(self, whisper):
-        rospy.loginfo("Predicting if whisper is text.")
+        rospy.loginfo("Starting prediction on whisper text.")
         failed_to_parse = True
         num_tries = 0
 
