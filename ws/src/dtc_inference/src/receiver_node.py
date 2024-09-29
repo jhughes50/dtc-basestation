@@ -6,7 +6,6 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import time
-from math import radians, cos, sin, atan2, sqrt
 import portalocker
 import getpass
 
@@ -53,7 +52,7 @@ class WSReceiverNode:
             "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov/",
         )
         self.device = rospy.get_param("device", "gpu")
-        rospy.loginfo(f"Set up device {self.device}.")
+        rospy.loginfo(f"REC: Set up device {self.device}.")
         
         robot_name = rospy.get_param("~ground_robot")
 
@@ -67,7 +66,7 @@ class WSReceiverNode:
         self.ground_image = rospy.Subscriber(
             "/" + robot_name + "/ground_image", GroundImage, self.ground_image_callback
         )
-        rospy.loginfo(f"Created subscribers to drone and ground.")
+        rospy.loginfo(f"REC: Created subscribers to drone and ground.")
 
         self.signal_publisher = rospy.Publisher(
             "/received_signals", Int8, queue_size=2
@@ -75,7 +74,7 @@ class WSReceiverNode:
         self.image_path_publisher = rospy.Publisher(
             "/received_images", ReceivedImageData, queue_size=2
         )
-        rospy.loginfo(f"Created publishers for signals and images.")
+        rospy.loginfo(f"REC: Created publishers for signals and images.")
 
         self._create_databases()
 
@@ -87,16 +86,16 @@ class WSReceiverNode:
         msg = String()
         msg.data = self.run_dir
         path_publisher.publish(msg)
-        rospy.loginfo(f"Published run directory at {self.run_dir}.")
+        rospy.loginfo(f"REC: Published run directory at {self.run_dir}.")
 
     def _create_databases(self):
         self.whisper_data_path = os.path.join(self.run_dir, "whisper_data.csv")
         if not os.path.exists(self.whisper_data_path):
             _df = pd.DataFrame(columns=["casualty_id", "whisper_id", "whisper_text"])
             _df.to_csv(self.whisper_data_path, index=False)
-            rospy.loginfo(f"Created file at {self.whisper_data_path}.")
+            rospy.loginfo(f"REC: Created file at {self.whisper_data_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.whisper_data_path}. Continuing.")
+            rospy.loginfo(f"REC: File already exists at {self.whisper_data_path}. Continuing.")
 
         self.aerial_image_data_path = os.path.join(self.run_dir, "aerial_image_data.csv")
         if not os.path.exists(self.aerial_image_data_path):
@@ -104,9 +103,9 @@ class WSReceiverNode:
                 columns=["casualty_id", "img_path"]
             )
             _df.to_csv(self.aerial_image_data_path, index=False)
-            rospy.loginfo(f"Created file at {self.aerial_image_data_path}.")
+            rospy.loginfo(f"REC: Created file at {self.aerial_image_data_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.aerial_image_data_path}. Continuing.")
+            rospy.loginfo(f"REC: File already exists at {self.aerial_image_data_path}. Continuing.")
 
         self.ground_image_data_path = os.path.join(self.run_dir, "ground_image_data.csv")
         if not os.path.exists(self.ground_image_data_path):
@@ -117,9 +116,9 @@ class WSReceiverNode:
                 ]
             )
             _df.to_csv(self.ground_image_data_path, index=False)
-            rospy.loginfo(f"Created file at {self.ground_image_data_path}.")
+            rospy.loginfo(f"REC: Created file at {self.ground_image_data_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.ground_image_data_path}. Continuing.")
+            rospy.loginfo(f"REC: File already exists at {self.ground_image_data_path}. Continuing.")
 
         self.signal_database_path = os.path.join(self.run_dir, "signal_data.csv")
         if not os.path.exists(self.signal_database_path):
@@ -131,9 +130,9 @@ class WSReceiverNode:
                 ]
             )
             _df.to_csv(self.signal_database_path, index=False)
-            rospy.loginfo(f"Created file at {self.signal_database_path}.")
+            rospy.loginfo(f"REC: Created file at {self.signal_database_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.signal_database_path}. Continuing.")
+            rospy.loginfo(f"REC: File already exists at {self.signal_database_path}. Continuing.")
         
     def drone_callback(self, msg):
         """Callback that is triggrered when drone sends a TDDetection.
@@ -144,7 +143,7 @@ class WSReceiverNode:
         Returns:
             bool: Whether or not new instance was added.
         """
-        rospy.loginfo("Received Drone Image Message")
+        rospy.loginfo("REC: Received Drone Image Message. Processing...")
         with portalocker.Lock(self.aerial_image_data_path, "r+", timeout=1):
             aerial_image_df = pd.read_csv(self.aerial_image_data_path)
 
@@ -154,7 +153,7 @@ class WSReceiverNode:
             
             np_arr_image = np.frombuffer(msg.image.data, np.uint8)
             drone_img = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
-            rospy.loginfo("Successfully decoded drone image.")
+            rospy.loginfo("REC: Successfully decoded drone image.")
 
             img_path = os.path.join(
                 self.run_dir, str(casualty_id), f"drone_img.png"
@@ -168,7 +167,7 @@ class WSReceiverNode:
             new_row = pd.DataFrame([append_dict])
             aerial_image_df = pd.concat([aerial_image_df, new_row], ignore_index=True)
             aerial_image_df.to_csv(self.aerial_image_data_path, index=False)
-            rospy.loginfo("Appended to aerial_image_data DF")
+            rospy.loginfo("REC: Appended to aerial_image_data database.")
 
         os.makedirs(os.path.join(self.run_dir, str(casualty_id)), exist_ok=True)
         cv2.imwrite(img_path, drone_img)
@@ -176,19 +175,19 @@ class WSReceiverNode:
         return True
 
     def ground_image_callback(self, msg):
-        print(f"Received Ground Image Message from {msg.header.frame_id}")
+        rospy.loginfo(f"REC: Received Ground Image Message from {msg.header.frame_id}")
         casualty_id = msg.casualty_id.data
 
         # TODO: adjust this with jason
         np_arr_image = np.frombuffer(msg.image1.data, np.uint8)
         ground_img_1 = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
-        rospy.loginfo("Successfully decoded img 1.")
+        rospy.loginfo("REC: Successfully decoded img 1.")
         np_arr_image = np.frombuffer(msg.image2.data, np.uint8)
         ground_img_2 = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
-        rospy.loginfo("Successfully decoded img 2.")
+        rospy.loginfo("REC: Successfully decoded img 2.")
         np_arr_image = np.frombuffer(msg.image3.data, np.uint8)
         ground_img_3 = cv2.imdecode(np_arr_image, cv2.IMREAD_UNCHANGED)
-        rospy.loginfo("Successfully decoded img 3.")
+        rospy.loginfo("REC: Successfully decoded img 3.")
         all_ground_images = [ground_img_1, ground_img_2, ground_img_3]
 
         # load all previous images
@@ -198,10 +197,10 @@ class WSReceiverNode:
             num_images_for_id = 3
             if casualty_id in image_df["casualty_id"].values:
                 num_images_for_id = len(image_df[image_df["casualty_id"] == casualty_id]) + 3
-            rospy.loginfo(f"Received images {num_images_for_id - 3} to {num_images_for_id} for casualty ID {casualty_id}.")
+            rospy.loginfo(f"REC: Received images {num_images_for_id - 3} to {num_images_for_id}.")
 
             if num_images_for_id > 6:
-                rospy.loginfo("Received more than 6 images for same casualty ID. Skipping.")
+                rospy.loginfo("REC: Received more than 6 images for same ID. Skipping.")
                 return False
             
             img_paths = [os.path.join(
@@ -221,15 +220,13 @@ class WSReceiverNode:
                 )
                 image_df = pd.concat([image_df, append_df], ignore_index=True)
                 image_df.to_csv(self.ground_image_data_path, index=False) 
-            rospy.loginfo(f"Added new image to Dataframe and saved image at {img_path}.")
-
-        rospy.loginfo("Successfully wrote all images to files.")            
+            rospy.loginfo(f"REC: Saved images and appended to ground_image_data database.")
         
         msg = ReceivedImageData()
         msg.casualty_id = casualty_id
         msg.image_path_list = img_paths
         self.image_path_publisher.publish(msg)
-        rospy.loginfo("Successfully published image message.")
+        rospy.loginfo("REC: Published image path message.")
 
         return True
 
@@ -241,11 +238,11 @@ class WSReceiverNode:
         """
 
         # Parse the message
-        rospy.loginfo(f"Received Ground Detection Message from {msg.header.frame_id}")
+        rospy.loginfo(f"REC: Received Ground Detection Message from {msg.header.frame_id}")
         whisper = msg.whisper.data
         acc_respiration_rate = msg.acconeer_respiration_rate.data
         neural_heart_rate = msg.neural_heart_rate.data
-        rospy.loginfo("Successfully parsed msg.")
+        rospy.loginfo("REC: Successfully parsed Message content.")
 
         with portalocker.Lock(self.signal_database_path, "r+", timeout=1):
             signal_database_df = pd.read_csv(self.signal_database_path)
@@ -262,7 +259,7 @@ class WSReceiverNode:
                 append_df = pd.DataFrame([append_dict])
                 signal_database_df = pd.concat([signal_database_df, append_df], ignore_index=True)
                 signal_database_df.to_csv(self.signal_database_path, index=False)
-                rospy.loginfo("Appended to signal_data DF")                   
+                rospy.loginfo("REC: Appended to signal database.")
 
         # save the whisper text
         with portalocker.Lock(self.whisper_data_path, "r", timeout=1):
@@ -283,7 +280,7 @@ class WSReceiverNode:
                 # save whisper text to a .txt file
                 with open(os.path.join(self.run_dir, str(casualty_id), f"whisper_{smallest_id}.txt"), "w") as f:
                     f.write(whisper)
-                rospy.loginfo("Successfully saved whisper text.")
+                rospy.loginfo("REC: Saved whisper text.")
 
             # append the whisper text to the whisper data
             append_dict = {
@@ -294,7 +291,7 @@ class WSReceiverNode:
             append_df = pd.DataFrame([append_dict])
             seen_whisper_texts_df = pd.concat([seen_whisper_texts_df, append_df], ignore_index=True)
             seen_whisper_texts_df.to_csv(self.whisper_data_path, index=False)
-            rospy.loginfo("Appended to whisper_data DF")
+            rospy.loginfo("REC: Appended to whisper database.")
 
         msg = Int8()
         msg.data = casualty_id
