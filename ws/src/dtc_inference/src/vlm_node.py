@@ -766,7 +766,6 @@ class VLMNode:
                 rospy.loginfo(
                     f"VLM: Failed to parse the response after {i} tries. Trying again."
                 )
-                rospy.loginfo(f"Response: {string_response}")
 
             num_tries += 1
 
@@ -912,7 +911,7 @@ class VLMNode:
         elif "3" in os.path.basename(image_path_list[0]):
             round_number = 1
         else:
-            rospy.logerr(f"Could not determine round number from image path.")
+            rospy.logerr(f"VLM: Could not determine round number from image path.")
             return
 
         first_image = Image.open(image_path_list[0])
