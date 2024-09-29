@@ -772,7 +772,7 @@ class VLMNode:
 
             if num_tries == 3 and failed_to_parse:
                 rospy.loginfo(
-                    f"VLM: Failed to parse the response after {num_tries} tries. " + \
+                    f"VLM: Failed to parse the response after {num_tries} tries. " 
                 )
                 return {"alertness_motor": 3}
 
@@ -833,7 +833,7 @@ class VLMNode:
 
             if num_tries == 3 and failed_to_parse:
                 rospy.loginfo(
-                    f"VLM: Failed to parse the response after {num_tries} tries. " + \
+                    f"VLM: Failed to parse the response after {num_tries} tries. " 
                 )
                 return {"alertness_verbal": 2}
 
