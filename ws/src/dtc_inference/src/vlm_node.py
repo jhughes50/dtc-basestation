@@ -286,7 +286,8 @@ class VLMNode:
         self.model_path = rospy.get_param(
             "model_path",
             # "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat-rank128-alpha8-newdata-lr5e_6-lowerres-lora/",
-            "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat-rank128-alpha8-ourdata_lr5e-6-lora/",
+            # "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat-rank128-alpha8-ourdata_lr5e-6-lora/",
+            "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat-rank128-alpha32-newdata-lr1e-5-lowerres-ep5-lora",
         )
         self.model_base = rospy.get_param(
             "model_path",
