@@ -280,76 +280,13 @@ def parse_dict_response(response, label_class):
     return parsed_response
 
 
-def old_parse_dict_response(response, label_class):
-    """Parse the response from the VLM to a dictionary.
-       Runs several checks to ensure the response is in the correct format.
-
-    Args:
-        response (str): The response from the VLM. Hopefully
-            this contains a dictionary.
-
-    Returns:
-        dict: The parsed response.
-    """
-    # first, figure out where the dictionary starts and ends
-    start_idx = response.find("{")
-    end_idx = response.find("}")
-    if start_idx == -1 or end_idx == -1:
-        rospy.loginfo(f"Response does not contain a dictionary. Response: {response}")
-        return "The response does not seem to contain a dictionary. Please provide a response in the format requested."
-    response = response[start_idx : end_idx + 1]
-    response = response.replace("'", '"')
-    response = response.replace(" ", "")
-    response = response.replace("\n", "")
-    response = response.replace("\t", "")
-    response = response.replace("\r", "")
-    response = response.replace("\\", "")
-    rospy.loginfo(f"Response: {response}")
-
-    try:
-        response = eval(response)
-    except:
-        return "The response does not seem to be a valid dictionary. Please provide a response in the format requested."
-
-    # check that the response values fit the expected values
-    for key in response.keys():  # TODO fix this to use LABELING constants
-        if key != label_class:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. "
-        if key == "trauma_head" and response[key] not in ["absence", "presence"]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for trauma_head are: absense, presence "
-        if key == "trauma_torso" and response[key] not in ["absence", "presence"]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for trauma_torso are: absense, presence "
-        if key == "trauma_upper_ext" and response[key] not in [
-            "normal",
-            "wound",
-            "amputation",
-        ]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for trauma_upper_ext are: normal, wound, amputation "
-        if key == "trauma_lower_ext" and response[key] not in [
-            "normal",
-            "wound",
-            "amputation",
-        ]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for trauma_lower_ext are: normal, wound, amputation "
-        if key == "alertness_ocular" and response[key] not in [
-            "open",
-            "closed",
-            "untestable",
-        ]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for alertness_ocular are: open, closed, untestable "
-
-    parsed_response = parse_label_dict_str_to_int(response)
-
-    return parsed_response
-
-
 class VLMNode:
     def __init__(self):
         # create a run directory with a timestamp
         self.model_path = rospy.get_param(
             "model_path",
-            "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat-rank128-alpha8-newdata-lr5e_6-lowerres-lora/",
-            # "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat-rank128-alpha8-ourdata_lr5e-6-lora/",
+            # "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat-rank128-alpha8-newdata-lr5e_6-lowerres-lora/",
+            "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat-rank128-alpha8-ourdata_lr5e-6-lora/",
         )
         self.model_base = rospy.get_param(
             "model_path",
