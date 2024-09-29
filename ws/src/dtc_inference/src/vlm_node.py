@@ -293,7 +293,7 @@ class VLMNode:
             "/mnt/dtc/perception_models/llava/llava-onevision-qwen2-7b-ov-chat/",
         )
         self.device = rospy.get_param("device", "gpu")
-        rospy.loginfo(f"Set up device {self.device}.")
+        rospy.loginfo(f"VLM: Set up device {self.device}.")
 
         self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
 
@@ -304,14 +304,14 @@ class VLMNode:
         self.image_analysis_publisher = rospy.Publisher(
             "/image_analysis_results", Int8, queue_size=2
         )
-        rospy.loginfo("Created subscribers to /received_images and publishers to /image_analysis_results.")
+        rospy.loginfo("VLM: Created subscribers to /received_images and publishers to /image_analysis_results.")
 
         self._create_databases()
 
         # load the VLM model into memory once
         disable_torch_init()
         self.model_name = get_model_name_from_path(self.model_path)
-        rospy.loginfo(f"Loading model {self.model_name} from {self.model_path}.")
+        rospy.loginfo(f"VLM: Loading model {self.model_name} from {self.model_path}.")
         self.tokenizer, self.model, self.image_processor, _ = load_pretrained_model(
             self.model_path,
             self.model_base, #TODO: fix this to use the lora models properly
@@ -319,7 +319,7 @@ class VLMNode:
             load_8bit=False,
             load_4bit=False,
         )
-        rospy.loginfo(f"Successfully loaded model {self.model_name}.")
+        rospy.loginfo(f"VLM: Successfully loaded model {self.model_name}.")
 
         # create the http streamer
         self.streamer = HttpStreamer(
@@ -389,9 +389,9 @@ class VLMNode:
                 ]
                 )
             _df.to_csv(self.ground_image_pred_path, index=False)
-            rospy.loginfo(f"Created file at {self.ground_image_pred_path}.")
+            rospy.loginfo(f"VLM: Created file at {self.ground_image_pred_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.ground_image_pred_path}. Continuing.")
+            rospy.loginfo(f"VLM: File already exists at {self.ground_image_pred_path}. Continuing.")
 
         self.aerial_image_pred_path = os.path.join(self.run_dir, "aerial_image_pred.csv")
         if not os.path.exists(self.aerial_image_pred_path):
@@ -403,9 +403,9 @@ class VLMNode:
                 ]
             )
             _df.to_csv(self.aerial_image_pred_path, index=False)
-            rospy.loginfo(f"Created file at {self.aerial_image_pred_path}.")
+            rospy.loginfo(f"VLM: Created file at {self.aerial_image_pred_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.aerial_image_pred_path}. Continuing.")
+            rospy.loginfo(f"VLM: File already exists at {self.aerial_image_pred_path}. Continuing.")
 
         self.whisper_pred_path = os.path.join(self.run_dir, "whisper_pred.csv")
         if not os.path.exists(self.whisper_pred_path):
@@ -417,9 +417,9 @@ class VLMNode:
                 ]
             )
             _df.to_csv(self.whisper_pred_path, index=False)
-            rospy.loginfo(f"Created file at {self.whisper_pred_path}.")
+            rospy.loginfo(f"VLM: Created file at {self.whisper_pred_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.whisper_pred_path}. Continuing.")
+            rospy.loginfo(f"VLM: File already exists at {self.whisper_pred_path}. Continuing.")
 
     def _get_prompts(
         self, initial_prompt_path, final_prompt_paths, user_response_fn_path
@@ -469,7 +469,7 @@ class VLMNode:
         else:
             conv_mode = "llava_v0"
 
-        rospy.loginfo(f"Got conversation mode: {conv_mode}")
+        rospy.loginfo(f"VLM: Got conversation mode: {conv_mode}")
 
         return conv_mode
 
@@ -529,7 +529,7 @@ class VLMNode:
         user_response_fn,
         final_prompt,
     ):
-        rospy.loginfo(f"Starting to predict on {label_class}.")
+        rospy.loginfo(f"VLM: Starting to predict on {label_class}.")
         keep_prompting = True
         num_steps_in_user_fn = 0
         while keep_prompting:
@@ -595,18 +595,18 @@ class VLMNode:
 
         string_response = self.tokenizer.decode(tokenized_response[0]).strip()
         conv.messages[-1][-1] = string_response
-        rospy.loginfo("Made it to final prompt, tying to parse the response")
+        rospy.loginfo("VLM: Made it to final prompt, tying to parse the response.")
 
         failed_to_parse = True
         for i in range(self.num_tries):
             final_response = parse_dict_response(string_response, label_class)
             if isinstance(final_response, dict):
-                rospy.loginfo(f"Successfully parsed the response after {i} tries.")
+                rospy.loginfo(f"VLM: Successfully parsed the response after {i} tries.")
                 failed_to_parse = False
                 break
             else:
                 rospy.loginfo(
-                    f"Failed to parse the response after {i} tries. Trying again."
+                    f"VLM: Failed to parse the response after {i} tries. Trying again."
                 )
                 conv.append_message(conv.roles[0], final_response)
                 conv.append_message(conv.roles[1], None)
@@ -636,8 +636,7 @@ class VLMNode:
 
         if i == self.num_tries - 1 and failed_to_parse:
             rospy.loginfo(
-                f"Failed to parse the response after {i} tries. Restarting prediction process. "
-                + "Not incrementing k_round."
+                f"VLM: Failed to parse the response after {i} tries. Restarting prediction process. "
             )
             return False, {}, ""
 
@@ -708,7 +707,7 @@ class VLMNode:
         return predictions, all_prompts
 
     def _predict_motion_from_video(self, images):
-        rospy.loginfo("Starting motion prediction.")
+        rospy.loginfo("VLM: Starting motion prediction.")
         failed_to_parse = True
 
         num_tries = 0
@@ -761,11 +760,11 @@ class VLMNode:
             for i in range(self.num_tries):
                 final_response = parse_dict_response(string_response, "alertness_motor")
                 if isinstance(final_response, dict):
-                    rospy.loginfo(f"Successfully parsed the response after {i} tries.")
+                    rospy.loginfo(f"VLM: Successfully parsed the response after {i} tries.")
                     failed_to_parse = False
                     break
                 rospy.loginfo(
-                    f"Failed to parse the response after {i} tries. Trying again."
+                    f"VLM: Failed to parse the response after {i} tries. Trying again."
                 )
                 rospy.loginfo(f"Response: {string_response}")
 
@@ -773,8 +772,7 @@ class VLMNode:
 
             if num_tries == 3 and failed_to_parse:
                 rospy.loginfo(
-                    f"Failed to parse the response after {num_tries} tries. " + \
-                    "Defaulting to untestable."
+                    f"VLM: Failed to parse the response after {num_tries} tries. " + \
                 )
                 return {"alertness_motor": 3}
 
@@ -782,7 +780,7 @@ class VLMNode:
 
 
     def _predict_if_whisper_is_text(self, whisper):
-        rospy.loginfo("Starting prediction on whisper text.")
+        rospy.loginfo("VLM: Starting prediction on whisper text.")
         failed_to_parse = True
         num_tries = 0
 
@@ -824,20 +822,18 @@ class VLMNode:
             for i in range(self.num_tries):
                 final_response = parse_dict_response(string_response, "alertness_verbal")
                 if isinstance(final_response, dict):
-                    rospy.loginfo(f"Successfully parsed the response after {i} tries.")
+                    rospy.loginfo(f"VLM: Successfully parsed the response after {i} tries.")
                     failed_to_parse = False
                     break
                 rospy.loginfo(
-                    f"Failed to parse the response after {i} tries. Trying again."
+                    f"VLM: Failed to parse the response after {i} tries. Trying again."
                 )
-                rospy.loginfo(f"Response: {string_response}")
             
             num_tries += 1
 
             if num_tries == 3 and failed_to_parse:
                 rospy.loginfo(
-                    f"Failed to parse the response after {num_tries} tries. " + \
-                    "Defaulting to absence."
+                    f"VLM: Failed to parse the response after {num_tries} tries. " + \
                 )
                 return {"alertness_verbal": 2}
 
@@ -861,7 +857,7 @@ class VLMNode:
             new_row = pd.DataFrame([predictions])
             df = pd.concat([df, new_row], ignore_index=True)
             df.to_csv(self.ground_image_pred_path, index=False)
-            rospy.loginfo(f"Successfully saved ground predictions.")
+            rospy.loginfo(f"VLM: Successfully saved ground predictions.")
 
     def _save_aerial_predictions(self, aerial_preds, casualty_id):
         with portalocker.Lock(self.aerial_image_pred_path, "r+") as f:
@@ -880,7 +876,7 @@ class VLMNode:
             append_df = pd.DataFrame([predictions])
             df = pd.concat([df, append_df], ignore_index=True)
             df.to_csv(self.aerial_image_pred_path, index=False)
-            rospy.loginfo(f"Successfully saved aerial predictions.")
+            rospy.loginfo(f"VLM: Successfully saved aerial predictions.")
 
     def _save_whisper_predictions(self, whisper_preds, whisper_id, casualty_id):
         with portalocker.Lock(self.whisper_pred_path, "r+") as f:
@@ -895,7 +891,7 @@ class VLMNode:
             append_df = pd.DataFrame([predictions])
             df = pd.concat([df, append_df], ignore_index=True)
             df.to_csv(self.whisper_pred_path, index=False)
-            rospy.loginfo(f"Successfully saved whisper predictions for id {whisper_id}.")
+            rospy.loginfo(f"VLM: Successfully saved whisper predictions for id {whisper_id}.")
 
     def vlm_callback(self, msg):
         """Callback that is triggrered when ground robot sends a GroundDetection.
@@ -907,7 +903,7 @@ class VLMNode:
 
         casualty_id = msg.casualty_id
         image_path_list = msg.image_path_list
-        rospy.loginfo(f"Successfully parsed message in VLM node.")
+        rospy.loginfo(f"VLM: Successfully parsed message.")
 
         # Check if the image_path_list starts with the 0th path in the filename
         # or the 3rd path. 
@@ -923,30 +919,29 @@ class VLMNode:
         first_image_width, first_image_height = first_image.size
 
         num_images = len(image_path_list)
-        rospy.loginfo(f"Received {num_images} image paths in VLM, starting prediction.")
+        rospy.loginfo(f"VLM: Received {num_images} image paths, starting prediction.")
         self.streamer.send_image(first_image.resize((first_image_width // 2, first_image_height // 2)))
-        rospy.loginfo(f"Sent image to streamer.")
+        rospy.loginfo(f"VLM: Sent image to streamer.")
 
         ### START WITH GROUND
         # Run the VLM for the ground image
         ground_img_list = [first_image.resize((first_image_width // 2, first_image_height // 2))]
-        rospy.loginfo("Received images, triggering VLM.")
         ground_vlm_pred, ground_vlm_prompts = self._predict_all_labels_from_vlm(ground_img_list)
-        rospy.loginfo(f"Successfully predicted ground labels.")
+        rospy.loginfo(f"VLM: Finished predicting ground labels.")
         
         # save the ground prompts into the directory that contains the image
         try:
             for i, prompt in enumerate(ground_vlm_prompts):
                 with open(os.path.join(os.path.dirname(image_path_list[-1]), f"prompt_{i}_{round_number}.txt"), "w") as f:
                     f.write(prompt)
-            rospy.loginfo(f"Successfully saved ground prompts.")
+            rospy.loginfo(f"VLM: Successfully saved ground prompts.")
         except:
-            rospy.logerr(f"Could not save ground prompts.")
+            rospy.logerr(f"VLM: Could not save ground prompts.")
 
         ### VIDEO PREDICTION WITH GROUND
         video_img_list = [Image.open(image_path_list[i]).resize((first_image_width // 2, first_image_height // 2)) for i in range(len(image_path_list))]
         motion_response_dict = self._predict_motion_from_video(video_img_list)
-        rospy.loginfo(f"Successfully predicted motion labels.")
+        rospy.loginfo(f"VLM: Finished predicting motion labels.")
         
         # save all the ground predictions
         self._save_ground_predictions(ground_vlm_pred, motion_response_dict, casualty_id)
@@ -958,18 +953,18 @@ class VLMNode:
 
         if casualty_id in aerial_pred_df["casualty_id"].values:
             rospy.loginfo(
-                f"Already seen drone image for casualty_id {casualty_id}. Skipping drone image."
+                f"VLM: Already analyzed drone image. Skipping."
             )
             drone_img_list = None
         else:
             # Try to find the drone image
             all_drone_images_paths = glob.glob(os.path.join(os.path.dirname(image_path_list[0]), "drone_img.png"))
             if len(all_drone_images_paths) == 1:
-                rospy.loginfo(f"Found drone image for casualty_id {casualty_id}.")
+                rospy.loginfo(f"VLM: Found drone image to analyze.")
 
                 drone_img_list = [Image.open(all_drone_images_paths[0])]
                 drone_vlm_pred, drone_vlm_prompts = self._predict_all_labels_from_vlm(drone_img_list, image_type="drone")
-                rospy.loginfo(f"Successfully predicted drone labels.")
+                rospy.loginfo(f"VLM: Finished predicting drone labels.")
                 self._save_aerial_predictions(drone_vlm_pred, casualty_id)
                 
                 # save the air prompts into the directory that contains the drone_image
@@ -977,13 +972,13 @@ class VLMNode:
                     try:
                         with open(os.path.join(os.path.dirname(all_drone_images_paths[-1]), f"drone_prompt_{i}.txt"), "w") as f:
                             f.write(prompt)
-                        rospy.loginfo(f"Successfully saved air prompts.")
+                        rospy.loginfo(f"VLM: Successfully saved drone prompts.")
                     except:
-                        rospy.logerr(f"Could not save air prompts.")
+                        rospy.logerr(f"VLM: Could not save drone prompts.")
 
             else:
                 rospy.loginfo(
-                    f"Did not find drone image for casualty_id {casualty_id}. Skipping drone image."
+                    f"VLM: Did not find drone image to analyze. Skipping."
                 )
                                     
         ### CONTINUE TO WHISPER
@@ -993,47 +988,43 @@ class VLMNode:
 
         # get missing whisper id's 
         missing_whisper_ids = [i for i in range(2) if i not in whisper_data_df[whisper_data_df["casualty_id"] == casualty_id]["whisper_id"].values]
-        rospy.loginfo(f"Missing whisper ids for casualty_id {casualty_id}: {missing_whisper_ids}")
+        rospy.loginfo(f"VLM: Missing whisper ids for: {missing_whisper_ids}")
 
         if len(missing_whisper_ids) > 0:
-            rospy.loginfo(f"Starting to check missing whisper strings for casualty_id {casualty_id}.")
+            rospy.loginfo(f"VLM: Starting to check missing whisper strings.")
             # Check if there is a whisper string available
             whispers_to_check = {}
             for idx in missing_whisper_ids:
                 whisper_path = os.path.join(os.path.dirname(image_path_list[0]), f"whisper_{idx}.txt")
-                rospy.loginfo(f"Looking for path {whisper_path}")
                 if os.path.exists(whisper_path):
-                    rospy.loginfo(f"Found path {whisper_path}")
                     with portalocker.Lock(whisper_path, "r") as f:
                         with open(whisper_path, "r") as f:
                             whisper = f.read()
-                    rospy.loginfo(f"Found whisper string for casualty_id {casualty_id} and whisper_id {idx}.")
                     whispers_to_check[idx] = whisper
                 else:
-                    rospy.loginfo(f"Did not find whisper string for casualty_id {casualty_id} and whisper_id {idx}. Skipping whisper string.")
+                    rospy.loginfo(f"VLM: Did not find whisper string for whisper_id {idx}. Skipping.")
 
             if len(whispers_to_check) > 0:
                 for whisper_id, whisper in whispers_to_check.items():
                     # run the text checker
                     if whisper == " ":
                         response_dict = {"alertness_verbal": 2}
-                        rospy.loginfo("No speech detected, defaulting to 2.")
                     else:
                         response_dict = self._predict_if_whisper_is_text(whisper)
-                        rospy.loginfo(f"Predicted whisper string for casualty_id {casualty_id} and whisper_id {whisper_id}.")
-                    
+                        rospy.loginfo(f"VLM: Finished predicting whisper labels for whisper_id {whisper_id}.")
+                                      
                     self._save_whisper_predictions(response_dict, whisper_id, casualty_id)
             else:
-                rospy.loginfo(f"Did not find any whisper strings for casualty_id {casualty_id}.")
+                rospy.loginfo(f"VLM: Did not find any whisper strings to analyze.")
         else:
-            rospy.loginfo(f"Already seen all whisper strings for casualty_id {casualty_id}. Skipping whisper strings.")
+            rospy.loginfo(f"VLM: Already analyzed all whisper strings. Skipping.")
 
         # publish the results
         msg = Int8()
         msg.data = casualty_id
         self.image_analysis_publisher.publish(msg)
         rospy.loginfo(
-            f"Total time for VLM callback: {time.time() - start_time_callback} seconds."
+            f"VLM: Total time for callback: {time.time() - start_time_callback} seconds."
         )
 
 def main():
