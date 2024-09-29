@@ -912,7 +912,7 @@ class VLMNode:
         elif "3" in os.path.basename(image_path_list[0]):
             round_number = 1
         else:
-            rospy.logerr(f"Could not determine round number from image_path_list: {image_path_list}")
+            rospy.logerr(f"Could not determine round number from image path.")
             return
 
         first_image = Image.open(image_path_list[0])

@@ -39,7 +39,7 @@ class ScoringClient:
         self.token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4M2Q3OGM4ZS04MzhhLTQ0NzctOWM3Yi02N2VmMTZlNWY3MTYiLCJpIjowfQ.i4KuwEtc5_6oIYz5TDWcdzl5bMkvCpLZTSZG2Avy84w"  # token_response["access_token"]
         self.headers = {"Authorization": f"{self.token_type} {self.token}"}
 
-        rospy.loginfo(f"Scoring client created with API URL: {self.api_url}")
+        rospy.loginfo(f"SCS: Scoring client created with API URL: {self.api_url}")
 
     def _get_login_token(self):
         """Get a login token from the scoring server
@@ -52,7 +52,7 @@ class ScoringClient:
         return response.json()
 
     def _check_post_response(self, response):
-        rospy.loginfo(f"Received status code {response.status_code}.")
+        rospy.loginfo(f"SCS: Received status code {response.status_code}.")
         if response.status_code == 200 or response.status_code == 201:
             return response
         elif response.status_code == 400:
@@ -131,8 +131,7 @@ class ScoringClient:
         }
 
         rospy.loginfo(
-            f"Posting critical report: with system: {system}, casualty_id: "
-            + f"{casualty_id}, type: {report_type}, value: {report_value}"
+            f"Posting critical report"
         )
         response = requests.post(url, headers=self.headers, json=report)
         response = self._check_post_response(response)
@@ -166,8 +165,7 @@ class ScoringClient:
         }
 
         rospy.loginfo(
-            f"Posting vitals report: with system: {system}, casualty_id: "
-            + f"{casualty_id}, type: {report_type}, value: {report_value}, time_ago: {time_ago}"
+            f"Posting vitals report"
         )
         response = requests.post(url, headers=self.headers, json=report)
         response = self._check_post_response(response)
@@ -212,8 +210,7 @@ class ScoringClient:
         }
 
         rospy.loginfo(
-            f"Posting injury report: with system: {system}, casualty_id: "
-            + f"{casualty_id}, type: {report_type}, value: {report_value}"
+            f"Posting injury report"
         )
         response = requests.post(url, headers=self.headers, json=report)
         response = self._check_post_response(response)
@@ -532,74 +529,6 @@ def parse_label_dict_str_to_int(label_dict):
     return label_dict
 
 
-def parse_dict_response(response, label_class):
-    """Parse the response from the VLM to a dictionary.
-       Runs several checks to ensure the response is in the correct format.
-
-    Args:
-        response (str): The response from the VLM. Hopefully
-            this contains a dictionary.
-
-    Returns:
-        dict: The parsed response.
-    """
-    # first, figure out where the dictionary starts and ends
-    start_idx = response.find("{")
-    end_idx = response.find("}")
-    if start_idx == -1 or end_idx == -1:
-        rospy.loginfo(f"Response does not contain a dictionary. Response: {response}")
-        return "The response does not seem to contain a dictionary. Please provide a response in the format requested."
-    response = response[start_idx : end_idx + 1]
-    response = response.replace("'", '"')
-    response = response.replace(" ", "")
-    response = response.replace("\n", "")
-    response = response.replace("\t", "")
-    response = response.replace("\r", "")
-    response = response.replace("\\", "")
-    rospy.loginfo(f"Response: {response}")
-
-    try:
-        response = eval(response)
-    except:
-        return "The response does not seem to be a valid dictionary. Please provide a response in the format requested."
-
-    # check that the response values fit the expected values
-    for key in response.keys():  # TODO fix this to use LABELING constants
-        if key != label_class:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. "
-        if key == "trauma_head" and response[key] not in ["absence", "presence"]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for trauma_head are: absense, presence "
-        if key == "trauma_torso" and response[key] not in ["absence", "presence"]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for trauma_torso are: absense, presence "
-        if key == "trauma_upper_ext" and response[key] not in [
-            "normal",
-            "wound",
-            "amputation",
-        ]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for trauma_upper_ext are: normal, wound, amputation "
-        if key == "trauma_lower_ext" and response[key] not in [
-            "normal",
-            "wound",
-            "amputation",
-        ]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for trauma_lower_ext are: normal, wound, amputation "
-        if key == "alertness_ocular" and response[key] not in [
-            "open",
-            "closed",
-            "untestable",
-        ]:
-            return f"The entry for key {key} seems to be parsed incorrectly. Please provide a response in the format requested. Options for alertness_ocular are: open, closed, untestable "
-
-    # for key in LABEL_CLASSES:
-    #     if key not in response.keys():
-    #         return f"The entry for key {key} seems to be missing. Please provide a response in the format requested."
-
-    # parse response string to int
-    parsed_response = parse_label_dict_str_to_int(response)
-
-    return parsed_response
-
-
 class ScorecardSenderNode:
     def __init__(self):
         self.run_dir = rospy.wait_for_message("/run_dir", String, timeout=None).data
@@ -619,17 +548,17 @@ class ScorecardSenderNode:
         if not os.path.exists(self.sc_vlm_messages_received_path):
             _df = pd.DataFrame(columns=["casualty_id"])
             _df.to_csv(self.sc_vlm_messages_received_path, index=False)
-            rospy.loginfo(f"Created file at {self.sc_vlm_messages_received_path}.")
+            rospy.loginfo(f"SCS: Created file at {self.sc_vlm_messages_received_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.sc_vlm_messages_received_path}. Continuing.")
+            rospy.loginfo(f"SCS: File already exists at {self.sc_vlm_messages_received_path}. Continuing.")
 
         self.sc_signal_messages_received_path = os.path.join(self.run_dir, "sc_signal_messages_received.csv")
         if not os.path.exists(self.sc_signal_messages_received_path):
             _df = pd.DataFrame(columns=["casualty_id"])
             _df.to_csv(self.sc_signal_messages_received_path, index=False)
-            rospy.loginfo(f"Created file at {self.sc_signal_messages_received_path}.")
+            rospy.loginfo(f"SCS: Created file at {self.sc_signal_messages_received_path}.")
         else:
-            rospy.loginfo(f"File already exists at {self.sc_signal_messages_received_path}. Continuing.")
+            rospy.loginfo(f"SCS: File already exists at {self.sc_signal_messages_received_path}. Continuing.")
 
         self.ground_pred_database_path = os.path.join(self.run_dir, "ground_image_pred.csv")
         self.aerial_pred_database_path = os.path.join(self.run_dir, "aerial_image_pred.csv")
@@ -686,7 +615,7 @@ class ScorecardSenderNode:
     
 
     def image_callback(self, msg):
-        rospy.loginfo(f"Received image analysis result.")
+        rospy.loginfo(f"SCS: Received image analysis Message.")
         casualty_id = msg.data
 
         # check number of received messages, if this is the second, send to scorecard
@@ -701,7 +630,7 @@ class ScorecardSenderNode:
             sc_vlm_messages_received_df.to_csv(self.sc_vlm_messages_received_path, index=False)
 
         if len(sc_vlm_messages_received_df) == 2:
-            rospy.loginfo(f"Received 2 image messages for casualty {casualty_id}.")
+            rospy.loginfo(f"SCS: Received 2 image messages for a casualty. Sending")
             
             # load image, drone and whisper data
             with portalocker.Lock(self.ground_pred_database_path, "r", timeout=1):
@@ -734,14 +663,13 @@ class ScorecardSenderNode:
                     {"type": key, "value": agg_res[key]}, ignore_index=True
                 )
 
-            rospy.loginfo(f"Attempting to send image analysis to scorecard. \n " + \
-                        f"Scorecard: {scorecard_frame}")
+            rospy.loginfo(f"SCS: Attempting to send image analysis to scorecard.")
             self.scoring_client.send_partial_scorecard("test", casualty_id, scorecard_frame)
-            rospy.loginfo("Successfully sent image analysis to scorecard.")            
+            rospy.loginfo("SCS: Successfully sent image analysis to scorecard.")            
 
 
     def signal_callback(self, msg):
-        rospy.loginfo(f"Received signal call")
+        rospy.loginfo(f"SCS: Received signal Message.")
         casualty_id = msg.data
         
         # check number of received messages, if this is the second, send to scorecard
@@ -756,7 +684,7 @@ class ScorecardSenderNode:
             sc_signal_messages_received_df.to_csv(self.sc_signal_messages_received_path, index=False)
             
         if len(sc_signal_messages_received_df) == 2:
-            rospy.loginfo(f"Received 2 signal messages for casualty {casualty_id}.")
+            rospy.loginfo(f"SCS: Received 2 signal messages for a casualty. Sending.")
 
         # load signal data
         with portalocker.Lock(self.signal_database_path, "r", timeout=1):
@@ -777,10 +705,9 @@ class ScorecardSenderNode:
                 {"type": "rr", "value": respiratory_rate_to_send}, ignore_index=True
             )
 
-            rospy.loginfo(f"Attempting to send signal to scorecard. \n " + \
-                            f"Scorecard: {scorecard_frame}")
+            rospy.loginfo(f"SCS: Attempting to send signal to scorecard.")
             self.scoring_client.send_partial_scorecard("test", casualty_id, scorecard_frame)
-            rospy.loginfo("Successfully sent signal to scorecard.")
+            rospy.loginfo("SCS: Successfully sent signal to scorecard.")
         else:
             return False
 
